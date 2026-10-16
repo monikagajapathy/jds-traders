@@ -1,0 +1,79 @@
+
+:root {
+  font-family: Inter, system-ui, Arial, sans-serif;
+  color: #172033;
+  background: #f3f5f8;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+button, input, select {
+  font: inherit;
+}
+
+.app-shell {
+  min-height: 100vh;
+  padding: 20px;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: #101c35;
+  color: #fff;
+  padding: 16px 22px;
+  border: 1px solid #b99752;
+  border-radius: 12px;
+}
+
+.brand-mark {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border: 2px solid #d9b568;
+  border-radius: 50%;
+  color: #f1d18b;
+  font-family: Georgia, serif;
+  font-weight: 800;
+}
+
+.topbar h1 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.topbar p {
+  margin: 4px 0 0;
+  color: #d4dbea;
+  font-size: 0.85rem;
+}
+
+.status {
+  margin-left: auto;
+  color: #f1d18b;
+  font-size: 0.85rem;
+}
+
+.workspace {
+  margin-top: 20px;
+  padding: 24px;
+  background: #fff;
+  border: 1px solid #e1e5ec;
+  border-radius: 12px;
+}
+
+.workspace h2 {
+  margin-top: 0;
+}
