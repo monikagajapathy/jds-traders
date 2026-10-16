@@ -14,17 +14,83 @@ const STORAGE_KEYS = {
   SALES: "jds_footwear_sales_v1",
   SETTINGS: "jds_footwear_settings_v1",
   NOTIFICATIONS: "jds_footwear_notifications_v1",
+  USERS: "jds_footwear_users_v1",
+  CURRENT_USER: "jds_current_user_v1",
+  STOCK_LOGS: "jds_footwear_stock_logs_v1",
 };
+
+const initialUsersList = [
+  { id: "usr-admin-1", name: "JDS Admin", role: "Admin", pin: "1234", phone: "+91 98401 23456", is_active: true },
+  { id: "usr-cashier-1", name: "Karthik (Cashier 1)", role: "Cashier", pin: "1111", phone: "+91 98401 11111", is_active: true },
+  { id: "usr-cashier-2", name: "Priya (Counter 2)", role: "Cashier", pin: "2222", phone: "+91 98401 22222", is_active: true },
+  { id: "usr-staff-1", name: "Anand (Stock Incharge)", role: "Staff", pin: "3333", phone: "+91 98401 33333", is_active: true },
+];
+
+const initialStockLogs = [
+  {
+    id: "log-seed-1",
+    product_name: "Bata Formal Oxford",
+    article_no: "OX-701",
+    delta: 12,
+    reason: "Restock Delivery",
+    note: "Initial warehouse intake",
+    adjusted_by: "JDS Admin",
+    created_at: new Date(Date.now() - 86400000 * 2).toISOString(),
+  },
+  {
+    id: "log-seed-2",
+    product_name: "Woodland Leather Trekker",
+    article_no: "WL-402",
+    delta: 6,
+    reason: "Restock Delivery",
+    note: "Supplier shipment #221",
+    adjusted_by: "Anand (Stock Incharge)",
+    created_at: new Date(Date.now() - 86400000).toISOString(),
+  },
+];
 
 export function StoreProvider({ children }) {
   const [activeTab, setActiveTab] = useState("billing");
   const [searchTerm, setSearchTerm] = useState("");
   const [targetInvoiceFilter, setTargetInvoiceFilter] = useState("");
   const [targetInventoryFilter, setTargetInventoryFilter] = useState("");
+  const [highlightTarget, setHighlightTarget] = useState(null);
   const [dbStatus, setDbStatus] = useState({
     connected: false,
     mode: "Supabase Connected",
     message: "Connected to PostgreSQL database",
+  });
+
+  // Users state
+  const [users, setUsers] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.USERS);
+      return saved ? JSON.parse(saved) : initialUsersList;
+    } catch {
+      return initialUsersList;
+    }
+  });
+
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
+      if (saved) return JSON.parse(saved);
+      const savedUsers = localStorage.getItem(STORAGE_KEYS.USERS);
+      const parsed = savedUsers ? JSON.parse(savedUsers) : initialUsersList;
+      return parsed[0] || initialUsersList[0];
+    } catch {
+      return initialUsersList[0];
+    }
+  });
+
+  // Stock Audit Logs state (for admin accountability)
+  const [stockLogs, setStockLogs] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.STOCK_LOGS);
+      return saved ? JSON.parse(saved) : initialStockLogs;
+    } catch {
+      return initialStockLogs;
+    }
   });
 
   // Load state from localStorage or initialData
@@ -125,6 +191,30 @@ export function StoreProvider({ children }) {
       console.warn("Error saving notifications:", e);
     }
   }, [notifications]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+    } catch (e) {
+      console.warn("Error saving users:", e);
+    }
+  }, [users]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(currentUser));
+    } catch (e) {
+      console.warn("Error saving current user:", e);
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.STOCK_LOGS, JSON.stringify(stockLogs));
+    } catch (e) {
+      console.warn("Error saving stock logs:", e);
+    }
+  }, [stockLogs]);
 
   // Connect to Supabase backend & subscribe to Realtime channel
   useEffect(() => {
@@ -491,6 +581,9 @@ export function StoreProvider({ children }) {
       id: `sale-${Date.now()}`,
       invoice_no: nextInvoiceNum,
       created_at: new Date().toISOString(),
+      billed_by: currentUser?.name || "JDS Admin",
+      user_role: currentUser?.role || "Cashier",
+      user_id: currentUser?.id || "usr-admin-1",
       customer: {
         name: customer.name || "Walk-in Customer",
         phone: customer.phone || "",
@@ -614,6 +707,8 @@ export function StoreProvider({ children }) {
             notes: newSale.notes,
             customer_name: newSale.customer?.name,
             customer_phone: newSale.customer?.phone,
+            billed_by: newSale.billed_by,
+            user_role: newSale.user_role,
           });
 
           // 2. Insert sale items
@@ -678,15 +773,19 @@ export function StoreProvider({ children }) {
 
   // Single Variant Stock Adjustment
   const adjustStock = (variantId, delta, reason = "Stock Adjustment", note = "") => {
+    let affectedProd = null;
+    let affectedSize = "";
     setProducts((prev) =>
       prev.map((prod) => {
         const hasVariant = prod.variants.some((v) => v.id === variantId);
         if (!hasVariant) return prod;
+        affectedProd = prod;
 
         return {
           ...prod,
           variants: prod.variants.map((v) => {
             if (v.id !== variantId) return v;
+            affectedSize = v.size;
             const newStock = Math.max(0, (v.stock || 0) + delta);
             return { ...v, stock: newStock };
           }),
@@ -694,17 +793,34 @@ export function StoreProvider({ children }) {
       })
     );
 
+    // Accountability audit log for admin
+    const logItem = {
+      id: `log-adj-${Date.now()}`,
+      product_id: affectedProd?.id,
+      product_name: affectedProd?.name || "Footwear Item",
+      article_no: affectedProd?.article_no || "",
+      size: affectedSize,
+      delta: delta,
+      reason: reason,
+      note: note,
+      adjusted_by: currentUser?.name || "JDS Admin",
+      created_at: new Date().toISOString(),
+    };
+    setStockLogs((prev) => [logItem, ...prev]);
+
     setNotifications((prev) => [
       {
         id: `notif-adj-${Date.now()}`,
         title: "Stock Adjusted",
-        message: `${delta > 0 ? `+${delta}` : delta} pairs updated (${reason}${
+        message: `${delta > 0 ? `+${delta}` : delta} pairs updated by ${currentUser?.name || "Admin"} (${reason}${
           note ? `: ${note}` : ""
         }).`,
         time: "Just now",
         unread: true,
         type: "stock",
         targetTab: "inventory",
+        productId: affectedProd?.id,
+        productName: affectedProd?.name,
       },
       ...prev,
     ]);
@@ -736,16 +852,33 @@ export function StoreProvider({ children }) {
       })
     );
 
+    const targetProd = products.find((p) => p.id === productId);
+
+    // Accountability audit log for admin
+    const logItem = {
+      id: `log-bulk-${Date.now()}`,
+      product_id: productId,
+      product_name: targetProd?.name || "Footwear Article",
+      article_no: targetProd?.article_no || "",
+      delta: totalPairsDelta,
+      reason: reason,
+      note: note,
+      adjusted_by: currentUser?.name || "JDS Admin",
+      created_at: new Date().toISOString(),
+    };
+    setStockLogs((prev) => [logItem, ...prev]);
+
     const sign = totalPairsDelta >= 0 ? `+${totalPairsDelta}` : `${totalPairsDelta}`;
     const notifObj = {
       id: `notif-bulk-adj-${Date.now()}`,
       title: "Stock Adjusted (All Sizes)",
-      message: `${sign} pairs updated across sizes (${reason}${note ? `: ${note}` : ""}).`,
+      message: `${sign} pairs updated by ${currentUser?.name || "Admin"} across sizes (${reason}${note ? `: ${note}` : ""}).`,
       time: "Just now",
       unread: true,
       type: "stock",
       targetTab: "inventory",
       productId: productId,
+      productName: targetProd?.name,
     };
 
     setNotifications((prev) => [notifObj, ...prev]);
@@ -834,6 +967,21 @@ export function StoreProvider({ children }) {
       ...prev,
     ]);
 
+    // Record stock inward audit log for admin accountability
+    const totalNewStock = formatted.variants.reduce((sum, v) => sum + (v.stock || 0), 0);
+    const addLog = {
+      id: `log-add-${Date.now()}`,
+      product_id: formatted.id,
+      product_name: formatted.name,
+      article_no: formatted.article_no,
+      delta: totalNewStock,
+      reason: "New Footwear Intake",
+      note: `Added model with ${formatted.variants.length} barcoded sizes`,
+      adjusted_by: currentUser?.name || "JDS Admin",
+      created_at: new Date().toISOString(),
+    };
+    setStockLogs((prev) => [addLog, ...prev]);
+
     // Push to Supabase backend immediately
     if (supabase) {
       (async () => {
@@ -883,6 +1031,64 @@ export function StoreProvider({ children }) {
     setProducts((prev) => prev.filter((prod) => prod.id !== productId));
   };
 
+  // User Management Actions (for Admin & Cashiers)
+  const switchUser = (userId) => {
+    const target = users.find((u) => u.id === userId);
+    if (target) {
+      setCurrentUser(target);
+      localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(target));
+      return target;
+    }
+    return null;
+  };
+
+  const addUser = (userData) => {
+    const newUser = {
+      id: `usr-${Date.now()}`,
+      name: userData.name.trim(),
+      role: userData.role || "Cashier",
+      pin: userData.pin || "1234",
+      phone: userData.phone || "",
+      is_active: true,
+      created_at: new Date().toISOString(),
+    };
+    setUsers((prev) => [...prev, newUser]);
+    if (supabase) {
+      supabase.from("store_users").insert(newUser).then(() => {});
+    }
+    return newUser;
+  };
+
+  const updateUser = (userId, updatedData) => {
+    setUsers((prev) =>
+      prev.map((u) => (u.id === userId ? { ...u, ...updatedData } : u))
+    );
+    if (currentUser?.id === userId) {
+      setCurrentUser((prev) => ({ ...prev, ...updatedData }));
+    }
+    if (supabase) {
+      supabase.from("store_users").update(updatedData).eq("id", userId).then(() => {});
+    }
+  };
+
+  const deleteUser = (userId) => {
+    if (users.length <= 1) {
+      alert("At least one user account must remain active.");
+      return false;
+    }
+    setUsers((prev) => prev.filter((u) => u.id !== userId));
+    if (currentUser?.id === userId) {
+      const nextUser = users.find((u) => u.id !== userId);
+      if (nextUser) setCurrentUser(nextUser);
+    }
+    if (supabase) {
+      supabase.from("store_users").delete().eq("id", userId).then(() => {});
+    }
+    return true;
+  };
+
+  const isAdmin = currentUser?.role === "Admin";
+
   // Refund / Return Sale
   const refundSale = (saleId) => {
     const sale = sales.find((s) => s.id === saleId);
@@ -917,11 +1123,25 @@ export function StoreProvider({ children }) {
       prev.map((s) => (s.id === saleId ? { ...s, status: "Refunded" } : s))
     );
 
+    // Accountability log
+    const refLog = {
+      id: `log-ref-${Date.now()}`,
+      product_id: sale.id,
+      product_name: `Invoice ${sale.invoice_no} Refund`,
+      article_no: "REFUND",
+      delta: sale.items?.length || 1,
+      reason: "Customer Return & Refund",
+      note: `Stock restored for invoice ${sale.invoice_no}`,
+      adjusted_by: currentUser?.name || "JDS Admin",
+      created_at: new Date().toISOString(),
+    };
+    setStockLogs((prev) => [refLog, ...prev]);
+
     setNotifications((prev) => [
       {
         id: `notif-ref-${Date.now()}`,
         title: "Invoice Refunded",
-        message: `Invoice ${sale.invoice_no} marked as refunded. Stock restored.`,
+        message: `Invoice ${sale.invoice_no} marked as refunded by ${currentUser?.name || "Admin"}. Stock restored.`,
         time: "Just now",
         unread: true,
         type: "sale",
@@ -947,10 +1167,12 @@ export function StoreProvider({ children }) {
     localStorage.removeItem(STORAGE_KEYS.SALES);
     localStorage.removeItem(STORAGE_KEYS.SETTINGS);
     localStorage.removeItem(STORAGE_KEYS.NOTIFICATIONS);
+    localStorage.removeItem(STORAGE_KEYS.STOCK_LOGS);
     setProducts(initialProducts);
     setSales(initialSales);
     setSettings(initialShopSettings);
     setNotifications(initialNotifications);
+    setStockLogs(initialStockLogs);
     setCart([]);
   };
 
@@ -970,7 +1192,7 @@ export function StoreProvider({ children }) {
     }
   };
 
-  // Clickable notification handler with contextual navigation
+  // Clickable notification handler with contextual navigation and precise element highlighting
   const handleNotificationClick = (notification) => {
     if (!notification) return;
     markNotificationRead(notification.id);
@@ -985,16 +1207,19 @@ export function StoreProvider({ children }) {
 
     setActiveTab(target);
 
+    // Set pinpoint highlight target with timestamp
+    setHighlightTarget({
+      tab: target,
+      invoiceNo: notification.invoiceNo,
+      saleId: notification.saleId,
+      productId: notification.productId,
+      productName: notification.productName,
+      timestamp: Date.now(),
+    });
+
     if (target === "transactions") {
       if (notification.invoiceNo) {
         setTargetInvoiceFilter(notification.invoiceNo);
-        const foundSale = sales.find(
-          (s) => s.invoice_no === notification.invoiceNo || s.id === notification.saleId
-        );
-        if (foundSale) {
-          setRecentInvoice(foundSale);
-          setIsReceiptOpen(true);
-        }
       }
     } else if (target === "inventory") {
       if (notification.productName) {
@@ -1007,6 +1232,8 @@ export function StoreProvider({ children }) {
       }
     }
   };
+
+  const clearHighlightTarget = () => setHighlightTarget(null);
 
   // Helper to ensure valid RFC-4122 UUID for PostgreSQL
   const toUUID = (str) => {
@@ -1026,9 +1253,11 @@ export function StoreProvider({ children }) {
     localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify([]));
     localStorage.setItem(STORAGE_KEYS.SALES, JSON.stringify([]));
     localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify([]));
+    localStorage.setItem(STORAGE_KEYS.STOCK_LOGS, JSON.stringify([]));
     setProducts([]);
     setSales([]);
     setNotifications([]);
+    setStockLogs([]);
     setCart([]);
   };
 
@@ -1088,11 +1317,23 @@ export function StoreProvider({ children }) {
     setTargetInvoiceFilter,
     targetInventoryFilter,
     setTargetInventoryFilter,
+    highlightTarget,
+    setHighlightTarget,
+    clearHighlightTarget,
     dbStatus,
     products,
     sales,
     settings,
     notifications,
+    users,
+    currentUser,
+    setCurrentUser,
+    switchUser,
+    addUser,
+    updateUser,
+    deleteUser,
+    isAdmin,
+    stockLogs,
     cart,
     addToCart,
     updateCartQty,

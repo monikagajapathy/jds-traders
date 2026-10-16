@@ -9,6 +9,14 @@ import {
   HelpCircle,
   ShieldCheck,
   Building,
+  Users,
+  UserPlus,
+  Trash2,
+  Key,
+  Shield,
+  UserCheck,
+  X,
+  Check,
 } from "lucide-react";
 import { useStore } from "../context/StoreContext.jsx";
 
@@ -20,9 +28,24 @@ export default function SettingsView() {
     resetToDemoData,
     clearAllData,
     syncCatalogToSupabase,
+    users,
+    currentUser,
+    addUser,
+    updateUser,
+    deleteUser,
+    isAdmin,
   } = useStore();
   const [formData, setFormData] = useState({ ...settings });
   const [savedAlert, setSavedAlert] = useState(false);
+
+  // User management state
+  const [isAddUserOpen, setIsAddUserOpen] = useState(false);
+  const [newUser, setNewUser] = useState({
+    name: "",
+    role: "Cashier",
+    pin: "1234",
+    phone: "",
+  });
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -217,6 +240,116 @@ export default function SettingsView() {
             </div>
           </div>
 
+          {/* User & Staff Accounts Panel (Accountability for Admin) */}
+          <div className="panel settings-card" style={{ gridColumn: "1 / -1" }}>
+            <div className="panel-heading">
+              <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                <div className="setting-icon-box">
+                  <Users size={18} />
+                </div>
+                <div>
+                  <h2>Staff & Cashier User Accounts</h2>
+                  <p>Assign counter personnel for transaction billing and stock adjustment accountability</p>
+                </div>
+              </div>
+              {isAdmin && (
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={() => {
+                    setNewUser({ name: "", role: "Cashier", pin: "1234", phone: "" });
+                    setIsAddUserOpen(true);
+                  }}
+                  style={{ padding: "6px 14px", fontSize: "11px" }}
+                >
+                  <UserPlus size={14} /> Add Counter Staff
+                </button>
+              )}
+            </div>
+
+            <div style={{ padding: "16px 20px" }}>
+              <div className="table-responsive" style={{ border: "1px solid #e2e8f0", borderRadius: "8px" }}>
+                <table className="custom-table" style={{ fontSize: "11px" }}>
+                  <thead>
+                    <tr>
+                      <th>Staff Name</th>
+                      <th>Assigned Role</th>
+                      <th>Quick PIN</th>
+                      <th>Contact Phone</th>
+                      <th style={{ textAlign: "center" }}>Active Status</th>
+                      {isAdmin && <th style={{ textAlign: "center" }}>Actions</th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {users.map((u) => {
+                      const isCurrent = u.id === currentUser?.id;
+                      return (
+                        <tr key={u.id} style={{ background: isCurrent ? "#faf7f0" : "transparent" }}>
+                          <td>
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                              <div className="user-item-avatar" style={{ width: "28px", height: "28px", fontSize: "10px" }}>
+                                {u.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+                              </div>
+                              <div>
+                                <strong>{u.name}</strong>
+                                {isCurrent && (
+                                  <span className="small-tag" style={{ marginLeft: "6px", fontSize: "8px", padding: "2px 5px" }}>
+                                    CURRENT ACTIVE
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          <td>
+                            <span className={`user-role-badge ${u.role?.toLowerCase() || "cashier"}`}>
+                              {u.role}
+                            </span>
+                          </td>
+                          <td>
+                            <span style={{ fontFamily: "monospace", letterSpacing: "2px" }}>••••</span>
+                          </td>
+                          <td style={{ color: "#64748b" }}>{u.phone || "—"}</td>
+                          <td style={{ textAlign: "center" }}>
+                            <span className="status-chip paid" style={{ fontSize: "10px" }}>
+                              Active
+                            </span>
+                          </td>
+                          {isAdmin && (
+                            <td style={{ textAlign: "center" }}>
+                              {users.length > 1 && u.role !== "Admin" ? (
+                                <button
+                                  type="button"
+                                  className="btn-tiny-danger"
+                                  title="Delete Staff Member"
+                                  onClick={() => {
+                                    if (confirm(`Remove user ${u.name}?`)) {
+                                      deleteUser(u.id);
+                                    }
+                                  }}
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              ) : (
+                                <span style={{ fontSize: "10px", color: "#94a3b8" }}>Primary</span>
+                              )}
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="pos-hint-box" style={{ marginTop: "12px" }}>
+                <ShieldCheck size={16} style={{ color: "#c5a15c", flexShrink: 0 }} />
+                <span>
+                  <strong>Accountability Notice:</strong> Every bill checked out, invoice refunded, and stock adjustment made on this system is logged with the user's name. In the Transactions view, Administrators can see and filter which staff member generated each bill.
+                </span>
+              </div>
+            </div>
+          </div>
+
           {/* Database & Architecture Panel */}
           <div className="panel settings-card" style={{ gridColumn: "1 / -1" }}>
             <div className="panel-heading">
@@ -337,6 +470,101 @@ export default function SettingsView() {
           </button>
         </div>
       </form>
+
+      {/* ADD USER MODAL */}
+      {isAddUserOpen && (
+        <div className="modal-backdrop" onClick={() => setIsAddUserOpen(false)}>
+          <div className="modal-content" style={{ maxWidth: "480px" }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                <div className="setting-icon-box">
+                  <UserPlus size={18} />
+                </div>
+                <div>
+                  <h2>Add Counter Staff / Cashier</h2>
+                  <p>Assign login name and role for POS billing and stock adjustments</p>
+                </div>
+              </div>
+              <button className="btn-close" type="button" onClick={() => setIsAddUserOpen(false)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!newUser.name.trim()) return;
+                addUser(newUser);
+                setIsAddUserOpen(false);
+                setSavedAlert(true);
+                setTimeout(() => setSavedAlert(false), 3000);
+              }}
+            >
+              <div className="modal-body" style={{ padding: "16px 20px" }}>
+                <div className="form-field">
+                  <label>Staff Full Name *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Ramesh Kumar (Cashier)"
+                    value={newUser.name}
+                    onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-grid-2">
+                  <div className="form-field">
+                    <label>Role</label>
+                    <select
+                      value={newUser.role}
+                      onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
+                    >
+                      <option value="Cashier">Cashier (Billing & POS)</option>
+                      <option value="Staff">Staff (Stock & Inventory)</option>
+                      <option value="Manager">Manager</option>
+                      <option value="Admin">Admin (Full Owner Access)</option>
+                    </select>
+                  </div>
+
+                  <div className="form-field">
+                    <label>Quick PIN (4 digits)</label>
+                    <input
+                      type="password"
+                      maxLength={6}
+                      placeholder="1234"
+                      value={newUser.pin}
+                      onChange={(e) => setNewUser({ ...newUser, pin: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-field">
+                  <label>Mobile Number (optional)</label>
+                  <input
+                    type="tel"
+                    placeholder="+91 98400 00000"
+                    value={newUser.phone}
+                    onChange={(e) => setNewUser({ ...newUser, phone: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setIsAddUserOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="btn-primary">
+                  <Check size={16} /> Save Staff Member
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

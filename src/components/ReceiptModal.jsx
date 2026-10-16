@@ -93,6 +93,14 @@ export default function ReceiptModal() {
                   : recentInvoice.payment_method}
               </span>
             </div>
+            <div>
+              <span className="meta-label">BILLED BY:</span>
+              <strong style={{ color: "#7c632e" }}>{recentInvoice.billed_by || "JDS Cashier"}</strong>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <span className="meta-label">STATUS:</span>
+              <strong style={{ color: "#16a34a" }}>{recentInvoice.status || "Paid"}</strong>
+            </div>
           </div>
 
           <table className="receipt-table">

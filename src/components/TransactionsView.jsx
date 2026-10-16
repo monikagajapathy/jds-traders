@@ -24,12 +24,16 @@ export default function TransactionsView() {
     setIsReceiptOpen,
     targetInvoiceFilter,
     setTargetInvoiceFilter,
+    isAdmin,
+    users,
+    highlightTarget,
   } = useStore();
 
   const [query, setQuery] = useState(targetInvoiceFilter || "");
   const [paymentFilter, setPaymentFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
   const [dateFilter, setDateFilter] = useState("All");
+  const [staffFilter, setStaffFilter] = useState("All");
 
   useEffect(() => {
     if (targetInvoiceFilter) {
@@ -37,6 +41,19 @@ export default function TransactionsView() {
       if (setTargetInvoiceFilter) setTargetInvoiceFilter("");
     }
   }, [targetInvoiceFilter, setTargetInvoiceFilter]);
+
+  // Smooth scroll to highlighted invoice when clicked from notification
+  useEffect(() => {
+    if (highlightTarget?.tab === "transactions" && highlightTarget.invoiceNo) {
+      const timer = setTimeout(() => {
+        const el = document.getElementById(`sale-row-${highlightTarget.invoiceNo}`);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [highlightTarget]);
 
   // Summary Metrics
   const summary = useMemo(() => {
@@ -82,6 +99,11 @@ export default function TransactionsView() {
 
       // Status Filter
       if (statusFilter !== "All" && s.status !== statusFilter) {
+        return false;
+      }
+
+      // Staff Filter (for Admin Accountability)
+      if (staffFilter !== "All" && (s.billed_by !== staffFilter)) {
         return false;
       }
 
@@ -251,6 +273,23 @@ export default function TransactionsView() {
               <option value="Completed">Completed</option>
               <option value="Refunded">Refunded</option>
             </select>
+
+            {isAdmin && (
+              <select
+                value={staffFilter}
+                onChange={(e) => setStaffFilter(e.target.value)}
+                className="select-filter"
+                style={{ borderColor: "#c5a15c", color: "#7c632e", fontWeight: 600 }}
+                title="Filter transactions by cashier / staff"
+              >
+                <option value="All">All Staff / Cashiers</option>
+                {users?.map((u) => (
+                  <option key={u.id} value={u.name}>
+                    {u.name} ({u.role})
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
         </div>
       </div>
@@ -264,6 +303,11 @@ export default function TransactionsView() {
                 <th>Invoice Details</th>
                 <th>Customer</th>
                 <th>Footwear Items</th>
+                {isAdmin && (
+                  <th style={{ color: "#7c632e", background: "#fcf9f2" }}>
+                    Billed By (Audit)
+                  </th>
+                )}
                 <th style={{ textAlign: "center" }}>Payment Mode</th>
                 <th style={{ textAlign: "center" }}>Status</th>
                 <th style={{ textAlign: "right" }}>Total Amount</th>
@@ -273,7 +317,7 @@ export default function TransactionsView() {
             <tbody>
               {filteredSales.length === 0 ? (
                 <tr>
-                  <td colSpan="7" style={{ textAlign: "center", padding: "40px 20px" }}>
+                  <td colSpan={isAdmin ? "8" : "7"} style={{ textAlign: "center", padding: "40px 20px" }}>
                     <FileText size={32} style={{ color: "#a0aec0", margin: "0 auto 10px" }} />
                     <div style={{ fontWeight: 600, color: "#4a5568" }}>
                       No transactions match your search criteria
@@ -293,8 +337,16 @@ export default function TransactionsView() {
                           0
                         ) || 0);
 
+                  const isHighlighted =
+                    highlightTarget?.tab === "transactions" &&
+                    (highlightTarget.invoiceNo === sale.invoice_no || highlightTarget.saleId === sale.id);
+
                   return (
-                    <tr key={sale.id}>
+                    <tr
+                      key={sale.id}
+                      id={`sale-row-${sale.invoice_no}`}
+                      className={isHighlighted ? "table-row-highlight" : ""}
+                    >
                       <td>
                         <div style={{ display: "flex", flexDirection: "column" }}>
                           <strong style={{ color: "#101c35", letterSpacing: "0.2px" }}>
@@ -327,6 +379,15 @@ export default function TransactionsView() {
                           ))}
                         </div>
                       </td>
+
+                      {isAdmin && (
+                        <td style={{ background: "#fcf9f2" }}>
+                          <div className="staff-audit-cell">
+                            <span className="staff-pill">{sale.billed_by || "Store Cashier"}</span>
+                            <span className="sub-text">{sale.user_role || "Cashier"}</span>
+                          </div>
+                        </td>
+                      )}
 
                       <td style={{ textAlign: "center" }}>
                         {sale.payment_method === "Split" ? (

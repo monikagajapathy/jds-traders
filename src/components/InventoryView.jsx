@@ -13,6 +13,8 @@ import {
   Tag,
   DollarSign,
   TrendingUp,
+  History,
+  ShieldCheck,
 } from "lucide-react";
 import { useStore } from "../context/StoreContext.jsx";
 import { formatINR } from "../utils/calculations.js";
@@ -26,11 +28,15 @@ export default function InventoryView() {
     bulkAdjustStock,
     targetInventoryFilter,
     setTargetInventoryFilter,
+    isAdmin,
+    stockLogs,
+    highlightTarget,
   } = useStore();
 
   const [query, setQuery] = useState(targetInventoryFilter || "");
   const [selectedCat, setSelectedCat] = useState("All");
   const [stockFilter, setStockFilter] = useState("All");
+  const [isAuditOpen, setIsAuditOpen] = useState(false);
 
   useEffect(() => {
     if (targetInventoryFilter) {
@@ -38,6 +44,28 @@ export default function InventoryView() {
       if (setTargetInventoryFilter) setTargetInventoryFilter("");
     }
   }, [targetInventoryFilter, setTargetInventoryFilter]);
+
+  // Smooth scroll to highlighted product when clicked from notification
+  useEffect(() => {
+    if (highlightTarget?.tab === "inventory" && (highlightTarget.productId || highlightTarget.productName)) {
+      const timer = setTimeout(() => {
+        const targetId =
+          highlightTarget.productId ||
+          products.find(
+            (p) =>
+              p.name === highlightTarget.productName ||
+              p.article_no === highlightTarget.productName
+          )?.id;
+        if (targetId) {
+          const el = document.getElementById(`prod-row-${targetId}`);
+          if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+        }
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [highlightTarget, products]);
 
   // Modals state
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -321,6 +349,18 @@ export default function InventoryView() {
               <option value="Out">Out of Stock</option>
             </select>
 
+            {isAdmin && (
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setIsAuditOpen(true)}
+                style={{ padding: "0 14px", height: "40px", borderColor: "#c5a15c", color: "#7c632e", fontWeight: 600 }}
+                title="View stock addition and adjustment accountability logs (Admin only)"
+              >
+                <History size={15} /> Stock Audit Trail
+              </button>
+            )}
+
             <button
               className="btn-primary"
               onClick={() => setIsAddOpen(true)}
@@ -372,8 +412,18 @@ export default function InventoryView() {
                       ? Math.round(((minPrice - costPrice) / minPrice) * 100)
                       : 0;
 
+                  const isHighlighted =
+                    highlightTarget?.tab === "inventory" &&
+                    (highlightTarget.productId === prod.id ||
+                      highlightTarget.productName === prod.name ||
+                      highlightTarget.productName === prod.article_no);
+
                   return (
-                    <tr key={prod.id}>
+                    <tr
+                      key={prod.id}
+                      id={`prod-row-${prod.id}`}
+                      className={isHighlighted ? "table-row-highlight" : ""}
+                    >
                       <td>
                         <div className="prod-cell">
                           <span className="art-pill">{prod.article_no}</span>
@@ -851,6 +901,91 @@ export default function InventoryView() {
                 onClick={handleSaveBulkAdjust}
               >
                 <Check size={16} /> Save All Size Adjustments
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* STOCK AUDIT TRAIL MODAL (ADMIN ACCOUNTABILITY) */}
+      {isAuditOpen && (
+        <div className="modal-backdrop" onClick={() => setIsAuditOpen(false)}>
+          <div className="modal-content" style={{ maxWidth: "780px" }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                <div className="setting-icon-box">
+                  <History size={18} />
+                </div>
+                <div>
+                  <h2>Footwear Stock Audit Trail</h2>
+                  <p>Logged stock inward intakes, physical counts, and cashier adjustments</p>
+                </div>
+              </div>
+              <button className="btn-close" onClick={() => setIsAuditOpen(false)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="modal-body" style={{ maxHeight: "380px", overflowY: "auto", padding: "14px 20px" }}>
+              {(!stockLogs || stockLogs.length === 0) ? (
+                <div style={{ padding: "30px", textAlign: "center", color: "#94a3b8" }}>
+                  No stock adjustment events recorded yet.
+                </div>
+              ) : (
+                <table className="custom-table" style={{ fontSize: "11px" }}>
+                  <thead>
+                    <tr>
+                      <th>Date & Time</th>
+                      <th>Product & Model</th>
+                      <th style={{ textAlign: "center" }}>Stock Delta</th>
+                      <th>Reason / Note</th>
+                      <th style={{ textAlign: "center", color: "#7c632e" }}>Adjusted By</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stockLogs.map((log) => (
+                      <tr key={log.id}>
+                        <td>
+                          <span style={{ fontSize: "10px", color: "#64748b" }}>
+                            {new Date(log.created_at).toLocaleString("en-IN", {
+                              dateStyle: "short",
+                              timeStyle: "short",
+                            })}
+                          </span>
+                        </td>
+                        <td>
+                          <strong>{log.product_name}</strong>
+                          {log.article_no && <span className="sub-text"> ({log.article_no})</span>}
+                          {log.size && <span className="item-pill-small" style={{ marginLeft: "4px" }}>Sz {log.size}</span>}
+                        </td>
+                        <td style={{ textAlign: "center" }}>
+                          <span className={`delta-badge ${log.delta > 0 ? "plus" : log.delta < 0 ? "minus" : "zero"}`}>
+                            {log.delta > 0 ? `+${log.delta}` : log.delta}
+                          </span>
+                        </td>
+                        <td>
+                          <span style={{ fontWeight: 600 }}>{log.reason}</span>
+                          {log.note && <div className="sub-text">{log.note}</div>}
+                        </td>
+                        <td style={{ textAlign: "center" }}>
+                          <span className="staff-pill" style={{ background: "#faf3e4", color: "#7c632e", borderColor: "#efe2c5" }}>
+                            {log.adjusted_by || "Admin"}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            <div className="modal-footer" style={{ justifyContent: "space-between" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "11px", color: "#64748b" }}>
+                <ShieldCheck size={14} style={{ color: "#c5a15c" }} />
+                <span>Strict Audit Mode: Visible only to store Administrators.</span>
+              </div>
+              <button className="btn-secondary" onClick={() => setIsAuditOpen(false)}>
+                Close
               </button>
             </div>
           </div>

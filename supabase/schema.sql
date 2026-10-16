@@ -35,18 +35,52 @@ create table if not exists public.settings (
   updated_at timestamptz default now()
 );
 
--- 3. Grant schema and table permissions to anon & authenticated
+-- 3. Create store_users table for cashier & staff accountability
+create table if not exists public.store_users (
+  id text primary key,
+  name text not null,
+  role text not null default 'Cashier',
+  pin text default '1234',
+  phone text,
+  is_active boolean default true,
+  created_at timestamptz default now()
+);
+
+-- 4. Create stock_logs table for inventory accountability trail
+create table if not exists public.stock_logs (
+  id text primary key,
+  product_id text,
+  product_name text,
+  article_no text,
+  size text,
+  delta integer default 0,
+  reason text,
+  note text,
+  adjusted_by text default 'JDS Admin',
+  created_at timestamptz default now()
+);
+
+-- 5. Ensure sales table has accountability columns
+do $$
+begin
+  if exists (select 1 from information_schema.tables where table_schema = 'public' and table_name = 'sales') then
+    alter table public.sales add column if not exists billed_by text default 'Store Cashier';
+    alter table public.sales add column if not exists user_role text default 'Cashier';
+  end if;
+end $$;
+
+-- 6. Grant schema and table permissions to anon & authenticated
 grant usage on schema public to anon, authenticated;
 grant all on all tables in schema public to anon, authenticated;
 grant all on all sequences in schema public to anon, authenticated;
 alter default privileges in schema public grant all on tables to anon, authenticated;
 alter default privileges in schema public grant all on sequences to anon, authenticated;
 
--- 4. Enable Row Level Security (RLS) safely on all existing tables
+-- 7. Enable Row Level Security (RLS) safely on all tables
 do $$
 declare
   tbl text;
-  tables text[] := array['products', 'product_variants', 'inventory', 'customers', 'sales', 'sale_items', 'payments', 'notifications', 'settings'];
+  tables text[] := array['products', 'product_variants', 'inventory', 'customers', 'sales', 'sale_items', 'payments', 'notifications', 'settings', 'store_users', 'stock_logs'];
 begin
   foreach tbl in array tables
   loop
@@ -58,11 +92,11 @@ begin
   end loop;
 end $$;
 
--- 5. Safe Realtime Publication and Replica Identity
+-- 8. Safe Realtime Publication and Replica Identity
 do $$
 declare
   tbl text;
-  tables text[] := array['products', 'product_variants', 'inventory', 'sales', 'sale_items', 'payments', 'notifications'];
+  tables text[] := array['products', 'product_variants', 'inventory', 'sales', 'sale_items', 'payments', 'notifications', 'store_users', 'stock_logs'];
 begin
   foreach tbl in array tables
   loop

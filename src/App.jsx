@@ -10,6 +10,9 @@ import {
   Wifi,
   Database,
   CheckCircle2,
+  Users,
+  ShieldCheck,
+  ChevronDown,
 } from "lucide-react";
 import { StoreProvider, useStore } from "./context/StoreContext.jsx";
 import BillingView from "./components/BillingView.jsx";
@@ -92,9 +95,14 @@ function MainWorkspace() {
     markAllNotificationsRead,
     handleNotificationClick,
     dbStatus,
+    users,
+    currentUser,
+    switchUser,
+    isAdmin,
   } = useStore();
 
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
   const selected = moduleText[activeTab] || moduleText.billing;
   const unreadCount = notifications.filter((n) => n.unread).length;
 
@@ -230,9 +238,93 @@ function MainWorkspace() {
               )}
             </div>
 
-            {/* Profile Avatar */}
-            <div className="avatar" title="JDS Traders Staff">
-              JD
+            {/* User Switcher Pill & Dropdown */}
+            <div style={{ position: "relative" }}>
+              <button
+                className={`user-switcher-pill ${isAdmin ? "is-admin" : ""}`}
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                title="Click to switch current active cashier / admin"
+                aria-label="User Switcher"
+              >
+                <div className="avatar-chip">
+                  {currentUser?.name
+                    ? currentUser.name
+                        .split(" ")
+                        .map((n) => n[0])
+                        .join("")
+                        .slice(0, 2)
+                        .toUpperCase()
+                    : "JD"}
+                </div>
+                <div className="user-info-text">
+                  <span className="user-name">{currentUser?.name || "JDS Staff"}</span>
+                  <span className={`user-role-badge ${currentUser?.role?.toLowerCase() || "cashier"}`}>
+                    {currentUser?.role || "Cashier"}
+                  </span>
+                </div>
+                <ChevronDown size={14} style={{ color: "#8a94a5", marginLeft: "2px" }} />
+              </button>
+
+              {showUserMenu && (
+                <div className="user-dropdown-menu">
+                  <div className="user-dropdown-header">
+                    <div>
+                      <strong>Switch Counter User</strong>
+                      <span className="sub-hint">Actions will be logged under this user</span>
+                    </div>
+                  </div>
+
+                  <div className="user-list">
+                    {users.map((u) => {
+                      const isSelected = u.id === currentUser?.id;
+                      const initials = u.name
+                        .split(" ")
+                        .map((n) => n[0])
+                        .join("")
+                        .slice(0, 2)
+                        .toUpperCase();
+
+                      return (
+                        <div
+                          key={u.id}
+                          className={`user-dropdown-item ${isSelected ? "selected" : ""}`}
+                          onClick={() => {
+                            switchUser(u.id);
+                            setShowUserMenu(false);
+                          }}
+                        >
+                          <div className="user-item-avatar">{initials}</div>
+                          <div className="user-item-meta">
+                            <strong>{u.name}</strong>
+                            <span className="sub-text">PIN: •••• • Role: {u.role}</span>
+                          </div>
+                          {isSelected && (
+                            <CheckCircle2 size={16} style={{ color: "#16a34a", marginLeft: "auto" }} />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="user-dropdown-footer">
+                    {isAdmin && (
+                      <div className="admin-audit-notice">
+                        <ShieldCheck size={13} style={{ color: "#c5a15c" }} />
+                        <span>Admin View: Full Staff Audit Logs Active</span>
+                      </div>
+                    )}
+                    <button
+                      className="btn-dropdown-manage"
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        setActiveTab("settings");
+                      }}
+                    >
+                      <Users size={14} /> Manage Staff & Users
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </header>
