@@ -57,6 +57,33 @@ const moduleText = {
   ],
 };
 
+class ViewErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error("View Error Caught:", error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: "40px", textAlign: "center", background: "#fff", borderRadius: "10px", margin: "20px" }}>
+          <h2 style={{ color: "#dc2626", fontSize: "16px", marginBottom: "8px" }}>Notice: Issue loading this view</h2>
+          <p style={{ color: "#64748b", margin: "0 0 16px", fontSize: "12px" }}>{this.state.error?.message || "An unexpected error occurred."}</p>
+          <button className="btn-primary" onClick={() => this.setState({ hasError: false, error: null })}>
+            Reload View
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function MainWorkspace() {
   const {
     activeTab,
@@ -211,12 +238,14 @@ function MainWorkspace() {
         </header>
 
         {/* ACTIVE DASHBOARD VIEW */}
-        {activeTab === "dashboard" && <DashboardView />}
-        {activeTab === "billing" && <BillingView />}
-        {activeTab === "inventory" && <InventoryView />}
-        {activeTab === "transactions" && <TransactionsView />}
-        {activeTab === "reports" && <ReportsView />}
-        {activeTab === "settings" && <SettingsView />}
+        <ViewErrorBoundary key={activeTab}>
+          {activeTab === "dashboard" && <DashboardView />}
+          {activeTab === "billing" && <BillingView />}
+          {activeTab === "inventory" && <InventoryView />}
+          {activeTab === "transactions" && <TransactionsView />}
+          {activeTab === "reports" && <ReportsView />}
+          {activeTab === "settings" && <SettingsView />}
+        </ViewErrorBoundary>
       </main>
 
       {/* Global Invoice / Receipt Print Modal */}

@@ -280,75 +280,91 @@ export function StoreProvider({ children }) {
           }
         }
 
-        // Set up Realtime subscriptions for multi-device sync
-        channel = supabase
-          .channel("jds-realtime-channel")
-          .on(
-            "postgres_changes",
-            { event: "*", schema: "public", table: "inventory" },
-            (payload) => {
-              if (payload.new && payload.new.variant_id) {
-                const { variant_id, quantity } = payload.new;
-                setProducts((prev) =>
-                  prev.map((prod) => ({
-                    ...prod,
-                    variants: prod.variants.map((v) =>
-                      v.id === variant_id ? { ...v, stock: Number(quantity) } : v
-                    ),
-                  }))
-                );
-              }
-            }
-          )
-          .on(
-            "postgres_changes",
-            { event: "INSERT", schema: "public", table: "sales" },
-            (payload) => {
-              if (payload.new && payload.new.id) {
-                setSales((prev) => {
-                  if (prev.some((s) => s.id === payload.new.id || s.invoice_no === payload.new.invoice_no)) {
-                    return prev;
-                  }
-                  return [payload.new, ...prev];
-                });
-              }
-            }
-          )
-          .on(
-            "postgres_changes",
-            { event: "INSERT", schema: "public", table: "notifications" },
-            (payload) => {
-              if (payload.new && payload.new.id) {
-                setNotifications((prev) => {
-                  if (prev.some((n) => n.id === payload.new.id)) return prev;
-                  return [
-                    {
-                      id: payload.new.id,
-                      title: payload.new.title,
-                      message: payload.new.message,
-                      time: payload.new.time || "Just now",
-                      unread: true,
-                      type: payload.new.type || "general",
-                      targetTab: payload.new.target_tab || "dashboard",
-                      invoiceNo: payload.new.invoice_no,
-                      productId: payload.new.product_id,
-                      saleId: payload.new.sale_id,
-                    },
-                    ...prev,
-                  ];
-                });
-              }
-            }
-          )
-          .subscribe((status) => {
-            if (status === "SUBSCRIBED") {
-              setDbStatus({
-                connected: true,
-                mode: "Supabase Realtime Live",
-                message: "Realtime synchronized with Supabase PostgreSQL",
-              });
+        // Clean up any stale channels from hot module reload
+        try {
+          const channels = supabase.getChannels();
+          channels.forEach((c) => {
+            if (c.topic.includes("jds-realtime-channel")) {
+              supabase.removeChannel(c);
             }
           });
+        } catch {
+          // ignore
+        }
+
+        // Set up Realtime subscriptions for multi-device sync
+        try {
+          channel = supabase
+            .channel(`jds-realtime-channel-${Date.now()}`)
+            .on(
+              "postgres_changes",
+              { event: "*", schema: "public", table: "inventory" },
+              (payload) => {
+                if (payload.new && payload.new.variant_id) {
+                  const { variant_id, quantity } = payload.new;
+                  setProducts((prev) =>
+                    prev.map((prod) => ({
+                      ...prod,
+                      variants: prod.variants.map((v) =>
+                        v.id === variant_id ? { ...v, stock: Number(quantity) } : v
+                      ),
+                    }))
+                  );
+                }
+              }
+            )
+            .on(
+              "postgres_changes",
+              { event: "INSERT", schema: "public", table: "sales" },
+              (payload) => {
+                if (payload.new && payload.new.id) {
+                  setSales((prev) => {
+                    if (prev.some((s) => s.id === payload.new.id || s.invoice_no === payload.new.invoice_no)) {
+                      return prev;
+                    }
+                    return [payload.new, ...prev];
+                  });
+                }
+              }
+            )
+            .on(
+              "postgres_changes",
+              { event: "INSERT", schema: "public", table: "notifications" },
+              (payload) => {
+                if (payload.new && payload.new.id) {
+                  setNotifications((prev) => {
+                    if (prev.some((n) => n.id === payload.new.id)) return prev;
+                    return [
+                      {
+                        id: payload.new.id,
+                        title: payload.new.title,
+                        message: payload.new.message,
+                        time: payload.new.time || "Just now",
+                        unread: true,
+                        type: payload.new.type || "general",
+                        targetTab: payload.new.target_tab || "dashboard",
+                        invoiceNo: payload.new.invoice_no,
+                        productId: payload.new.product_id,
+                        saleId: payload.new.sale_id,
+                      },
+                      ...prev,
+                    ];
+                  });
+                }
+              }
+            )
+            .subscribe((status) => {
+              if (status === "SUBSCRIBED") {
+                setDbStatus({
+                  connected: true,
+                  mode: "Supabase Realtime Live",
+                  message: "Realtime synchronized with Supabase PostgreSQL",
+                });
+              }
+            });
+        } catch (realtimeErr) {
+          console.warn("Realtime subscription warning:", realtimeErr);
+        }
       } catch (err) {
         console.warn("Supabase init exception:", err);
         setDbStatus({
