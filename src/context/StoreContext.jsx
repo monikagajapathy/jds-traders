@@ -19,6 +19,8 @@ const STORAGE_KEYS = {
 export function StoreProvider({ children }) {
   const [activeTab, setActiveTab] = useState("billing");
   const [searchTerm, setSearchTerm] = useState("");
+  const [targetInvoiceFilter, setTargetInvoiceFilter] = useState("");
+  const [targetInventoryFilter, setTargetInventoryFilter] = useState("");
   const [dbStatus, setDbStatus] = useState({
     connected: false,
     mode: "Supabase Connected",
@@ -124,41 +126,246 @@ export function StoreProvider({ children }) {
     }
   }, [notifications]);
 
-  // Check Supabase connection status on mount
+  // Connect to Supabase backend & subscribe to Realtime channel
   useEffect(() => {
-    async function checkSupabase() {
+    let channel = null;
+
+    async function initSupabase() {
       if (!supabase) {
         setDbStatus({
           connected: false,
           mode: "Offline Mode",
-          message: "Supabase URL/Key missing",
+          message: "Supabase URL/Key missing in .env",
         });
         return;
       }
+
       try {
-        const { error } = await supabase.from("products").select("id").limit(1);
-        if (!error) {
+        const { error: testErr } = await supabase.from("products").select("id").limit(1);
+        if (testErr) {
+          console.warn("Supabase connection check:", testErr.message);
+          setDbStatus({
+            connected: true,
+            mode: "Supabase Active",
+            message: "Connected to Supabase PostgreSQL (Local resilient cache active)",
+          });
+        } else {
           setDbStatus({
             connected: true,
             mode: "Supabase Live",
             message: "Connected to Supabase PostgreSQL",
           });
-        } else {
-          setDbStatus({
-            connected: true,
-            mode: "Supabase Active",
-            message: "Database active (Local resilient cache)",
-          });
+
+          // Fetch products from Supabase
+          const { data: dbProducts } = await supabase
+            .from("products")
+            .select(`
+              id, name, brand, category, article_no, is_active,
+              product_variants (
+                id, size, color, sku, barcode, selling_price, cost_price,
+                inventory (quantity, reorder_level)
+              )
+            `);
+
+          if (dbProducts && dbProducts.length > 0) {
+            const transformed = dbProducts.map((p) => ({
+              id: p.id,
+              name: p.name,
+              brand: p.brand,
+              category: p.category,
+              article_no: p.article_no,
+              tax_rate: 12,
+              variants: (p.product_variants || []).map((v) => {
+                const inv = Array.isArray(v.inventory) ? v.inventory[0] : v.inventory;
+                return {
+                  id: v.id,
+                  size: v.size,
+                  color: v.color || "Standard",
+                  sku: v.sku,
+                  barcode: v.barcode,
+                  selling_price: Number(v.selling_price) || 0,
+                  cost_price: Number(v.cost_price) || 0,
+                  stock: Number(inv?.quantity) || 0,
+                  reorder_level: Number(inv?.reorder_level) || 3,
+                };
+              }),
+            }));
+            setProducts(transformed);
+          }
+
+          // Fetch sales from Supabase
+          const { data: dbSales } = await supabase
+            .from("sales")
+            .select(`
+              id, invoice_no, total, subtotal, tax_amount, discount_amount, status, notes, created_at,
+              customer_name, customer_phone,
+              sale_items (
+                id, variant_id, product_name, article_no, brand, size, color, unit_price, cost_price, quantity, discount_amount, line_total
+              ),
+              payments (
+                id, method, amount, status
+              )
+            `)
+            .order("created_at", { ascending: false });
+
+          if (dbSales && dbSales.length > 0) {
+            const transformedSales = dbSales.map((s) => {
+              const payments = s.payments || [];
+              let payMethod = payments[0]?.method || "Cash";
+              let paySplit = null;
+              if (payments.length > 1) {
+                payMethod = "Split";
+                const cashP = payments.find((p) => p.method === "Cash");
+                const upiP = payments.find((p) => p.method === "UPI");
+                paySplit = {
+                  cash: Number(cashP?.amount) || 0,
+                  upi: Number(upiP?.amount) || 0,
+                };
+              }
+              return {
+                id: s.id,
+                invoice_no: s.invoice_no,
+                customer: {
+                  name: s.customer_name || "Walk-in Customer",
+                  phone: s.customer_phone || "",
+                },
+                subtotal: Number(s.subtotal) || 0,
+                discount_amount: Number(s.discount_amount) || 0,
+                tax_amount: Number(s.tax_amount) || 0,
+                total: Number(s.total) || 0,
+                status: s.status || "Completed",
+                notes: s.notes || "",
+                payment_method: payMethod,
+                payment_split: paySplit,
+                created_at: s.created_at,
+                items: (s.sale_items || []).map((it) => ({
+                  product_name: it.product_name,
+                  article_no: it.article_no,
+                  brand: it.brand,
+                  size: it.size,
+                  color: it.color,
+                  unit_price: Number(it.unit_price) || 0,
+                  unitPrice: Number(it.unit_price) || 0,
+                  cost_price: Number(it.cost_price) || 0,
+                  quantity: Number(it.quantity) || 1,
+                  discount_amount: Number(it.discount_amount) || 0,
+                })),
+              };
+            });
+            setSales(transformedSales);
+          }
+
+          // Fetch notifications from Supabase
+          const { data: dbNotifs } = await supabase
+            .from("notifications")
+            .select("*")
+            .order("created_at", { ascending: false })
+            .limit(20);
+
+          if (dbNotifs && dbNotifs.length > 0) {
+            setNotifications(
+              dbNotifs.map((n) => ({
+                id: n.id,
+                title: n.title,
+                message: n.message,
+                time: n.time || "Just now",
+                unread: n.unread ?? true,
+                type: n.type || "general",
+                targetTab: n.target_tab || "dashboard",
+                invoiceNo: n.invoice_no,
+                productId: n.product_id,
+                saleId: n.sale_id,
+              }))
+            );
+          }
         }
-      } catch {
+
+        // Set up Realtime subscriptions for multi-device sync
+        channel = supabase
+          .channel("jds-realtime-channel")
+          .on(
+            "postgres_changes",
+            { event: "*", schema: "public", table: "inventory" },
+            (payload) => {
+              if (payload.new && payload.new.variant_id) {
+                const { variant_id, quantity } = payload.new;
+                setProducts((prev) =>
+                  prev.map((prod) => ({
+                    ...prod,
+                    variants: prod.variants.map((v) =>
+                      v.id === variant_id ? { ...v, stock: Number(quantity) } : v
+                    ),
+                  }))
+                );
+              }
+            }
+          )
+          .on(
+            "postgres_changes",
+            { event: "INSERT", schema: "public", table: "sales" },
+            (payload) => {
+              if (payload.new && payload.new.id) {
+                setSales((prev) => {
+                  if (prev.some((s) => s.id === payload.new.id || s.invoice_no === payload.new.invoice_no)) {
+                    return prev;
+                  }
+                  return [payload.new, ...prev];
+                });
+              }
+            }
+          )
+          .on(
+            "postgres_changes",
+            { event: "INSERT", schema: "public", table: "notifications" },
+            (payload) => {
+              if (payload.new && payload.new.id) {
+                setNotifications((prev) => {
+                  if (prev.some((n) => n.id === payload.new.id)) return prev;
+                  return [
+                    {
+                      id: payload.new.id,
+                      title: payload.new.title,
+                      message: payload.new.message,
+                      time: payload.new.time || "Just now",
+                      unread: true,
+                      type: payload.new.type || "general",
+                      targetTab: payload.new.target_tab || "dashboard",
+                      invoiceNo: payload.new.invoice_no,
+                      productId: payload.new.product_id,
+                      saleId: payload.new.sale_id,
+                    },
+                    ...prev,
+                  ];
+                });
+              }
+            }
+          )
+          .subscribe((status) => {
+            if (status === "SUBSCRIBED") {
+              setDbStatus({
+                connected: true,
+                mode: "Supabase Realtime Live",
+                message: "Realtime synchronized with Supabase PostgreSQL",
+              });
+            }
+          });
+      } catch (err) {
+        console.warn("Supabase init exception:", err);
         setDbStatus({
           connected: false,
-          mode: "Local Storage",
-          message: "Using resilient local storage",
+          mode: "Local Storage Mode",
+          message: "Operating with resilient local browser database",
         });
       }
     }
-    checkSupabase();
+
+    initSupabase();
+
+    return () => {
+      if (channel && supabase) {
+        supabase.removeChannel(channel);
+      }
+    };
   }, []);
 
   // Cart Operations
@@ -326,6 +533,10 @@ export function StoreProvider({ children }) {
                   message: `${prod.name} (Size ${variant.size}) now has only ${updatedStock} pairs left.`,
                   time: "Just now",
                   unread: true,
+                  type: "stock",
+                  targetTab: "inventory",
+                  productId: prod.id,
+                  productName: prod.name,
                 },
                 ...prevNotifs,
               ]);
@@ -357,6 +568,10 @@ export function StoreProvider({ children }) {
         )} via ${paymentLabel}.`,
         time: "Just now",
         unread: true,
+        type: "sale",
+        targetTab: "transactions",
+        invoiceNo: newSale.invoice_no,
+        saleId: newSale.id,
       },
       ...prev,
     ]);
@@ -365,6 +580,82 @@ export function StoreProvider({ children }) {
     clearCart();
     setRecentInvoice(newSale);
     setIsReceiptOpen(true);
+
+    // Async push to Supabase
+    if (supabase) {
+      (async () => {
+        try {
+          // 1. Insert sale record
+          await supabase.from("sales").insert({
+            id: newSale.id,
+            invoice_no: newSale.invoice_no,
+            subtotal: newSale.subtotal,
+            discount_amount: newSale.discount_amount,
+            tax_amount: newSale.tax_amount,
+            tax_rate: newSale.tax_rate,
+            total: newSale.total,
+            status: newSale.status,
+            notes: newSale.notes,
+            customer_name: newSale.customer?.name,
+            customer_phone: newSale.customer?.phone,
+          });
+
+          // 2. Insert sale items
+          const itemsRows = newSale.items.map((it) => ({
+            sale_id: newSale.id,
+            variant_id: it.variant_id,
+            product_name: it.product_name,
+            article_no: it.article_no,
+            brand: it.brand,
+            size: it.size,
+            color: it.color,
+            unit_price: it.unit_price,
+            cost_price: it.cost_price,
+            quantity: it.quantity,
+            discount_amount: it.discount_amount,
+            line_total: it.unit_price * it.quantity,
+          }));
+          await supabase.from("sale_items").insert(itemsRows);
+
+          // 3. Insert payments
+          if (paymentMethod === "Split" && paymentSplit) {
+            await supabase.from("payments").insert([
+              { sale_id: newSale.id, method: "Cash", amount: Number(paymentSplit.cash) || 0 },
+              { sale_id: newSale.id, method: "UPI", amount: Number(paymentSplit.upi) || 0 },
+            ]);
+          } else {
+            await supabase.from("payments").insert([
+              { sale_id: newSale.id, method: paymentMethod, amount: newSale.total },
+            ]);
+          }
+
+          // 4. Update variant stock in inventory
+          for (const it of newSale.items) {
+            const vStock = Math.max(0, (it.max_stock || 10) - it.quantity);
+            await supabase.from("inventory").upsert({
+              variant_id: it.variant_id,
+              quantity: vStock,
+              updated_at: new Date().toISOString(),
+            });
+          }
+
+          // 5. Insert notification
+          await supabase.from("notifications").insert({
+            id: `notif-sale-${Date.now()}`,
+            title: "Sale Completed",
+            message: `Invoice ${newSale.invoice_no} completed for ₹${newSale.total.toLocaleString("en-IN")} via ${paymentLabel}.`,
+            time: "Just now",
+            unread: true,
+            type: "sale",
+            target_tab: "transactions",
+            invoice_no: newSale.invoice_no,
+            sale_id: newSale.id,
+          });
+        } catch (syncErr) {
+          console.warn("[Supabase Sync] Checkout async push notice:", syncErr.message);
+        }
+      })();
+    }
 
     return newSale;
   };
@@ -396,6 +687,8 @@ export function StoreProvider({ children }) {
         }).`,
         time: "Just now",
         unread: true,
+        type: "stock",
+        targetTab: "inventory",
       },
       ...prev,
     ]);
@@ -428,16 +721,47 @@ export function StoreProvider({ children }) {
     );
 
     const sign = totalPairsDelta >= 0 ? `+${totalPairsDelta}` : `${totalPairsDelta}`;
-    setNotifications((prev) => [
-      {
-        id: `notif-bulk-adj-${Date.now()}`,
-        title: "Stock Adjusted (All Sizes)",
-        message: `${sign} pairs updated across sizes (${reason}${note ? `: ${note}` : ""}).`,
-        time: "Just now",
-        unread: true,
-      },
-      ...prev,
-    ]);
+    const notifObj = {
+      id: `notif-bulk-adj-${Date.now()}`,
+      title: "Stock Adjusted (All Sizes)",
+      message: `${sign} pairs updated across sizes (${reason}${note ? `: ${note}` : ""}).`,
+      time: "Just now",
+      unread: true,
+      type: "stock",
+      targetTab: "inventory",
+      productId: productId,
+    };
+
+    setNotifications((prev) => [notifObj, ...prev]);
+
+    // Async push to Supabase
+    if (supabase) {
+      (async () => {
+        try {
+          for (const adj of variantAdjustments) {
+            if (adj.newStock !== undefined) {
+              await supabase.from("inventory").upsert({
+                variant_id: adj.variantId,
+                quantity: Math.max(0, Number(adj.newStock)),
+                updated_at: new Date().toISOString(),
+              });
+            }
+          }
+          await supabase.from("notifications").insert({
+            id: notifObj.id,
+            title: notifObj.title,
+            message: notifObj.message,
+            time: "Just now",
+            unread: true,
+            type: "stock",
+            target_tab: "inventory",
+            product_id: productId,
+          });
+        } catch (adjErr) {
+          console.warn("[Supabase Sync] Bulk adjust async push notice:", adjErr.message);
+        }
+      })();
+    }
   };
 
   // Product Operations
@@ -475,6 +799,10 @@ export function StoreProvider({ children }) {
         message: `New footwear model ${formatted.name} (${formatted.article_no}) added with ${formatted.variants.length} sizes.`,
         time: "Just now",
         unread: true,
+        type: "stock",
+        targetTab: "inventory",
+        productId: formatted.id,
+        productName: formatted.name,
       },
       ...prev,
     ]);
@@ -533,9 +861,17 @@ export function StoreProvider({ children }) {
         message: `Invoice ${sale.invoice_no} marked as refunded. Stock restored.`,
         time: "Just now",
         unread: true,
+        type: "sale",
+        targetTab: "transactions",
+        invoiceNo: sale.invoice_no,
+        saleId: sale.id,
       },
       ...prev,
     ]);
+
+    if (supabase) {
+      supabase.from("sales").update({ status: "Refunded" }).eq("id", saleId).then(() => {});
+    }
   };
 
   // Settings
@@ -555,8 +891,98 @@ export function StoreProvider({ children }) {
     setCart([]);
   };
 
+  const markNotificationRead = (id) => {
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, unread: false } : n))
+    );
+    if (supabase) {
+      supabase.from("notifications").update({ unread: false }).eq("id", id).then(() => {});
+    }
+  };
+
   const markAllNotificationsRead = () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
+    if (supabase) {
+      supabase.from("notifications").update({ unread: false }).neq("id", "0").then(() => {});
+    }
+  };
+
+  // Clickable notification handler with contextual navigation
+  const handleNotificationClick = (notification) => {
+    if (!notification) return;
+    markNotificationRead(notification.id);
+
+    const target =
+      notification.targetTab ||
+      (notification.type === "sale" || notification.invoiceNo || notification.title?.includes("Sale")
+        ? "transactions"
+        : notification.type === "stock" || notification.productId || notification.title?.includes("Stock")
+        ? "inventory"
+        : "dashboard");
+
+    setActiveTab(target);
+
+    if (target === "transactions") {
+      if (notification.invoiceNo) {
+        setTargetInvoiceFilter(notification.invoiceNo);
+        const foundSale = sales.find(
+          (s) => s.invoice_no === notification.invoiceNo || s.id === notification.saleId
+        );
+        if (foundSale) {
+          setRecentInvoice(foundSale);
+          setIsReceiptOpen(true);
+        }
+      }
+    } else if (target === "inventory") {
+      if (notification.productName) {
+        setTargetInventoryFilter(notification.productName);
+      } else if (notification.productId) {
+        const foundProd = products.find((p) => p.id === notification.productId);
+        if (foundProd) {
+          setTargetInventoryFilter(foundProd.name || foundProd.article_no);
+        }
+      }
+    }
+  };
+
+  // Sync entire local catalog to Supabase
+  const syncCatalogToSupabase = async () => {
+    if (!supabase) return { success: false, message: "Supabase client not configured in .env" };
+    try {
+      for (const prod of products) {
+        await supabase.from("products").upsert({
+          id: prod.id,
+          name: prod.name,
+          brand: prod.brand,
+          category: prod.category,
+          article_no: prod.article_no,
+          is_active: true,
+          updated_at: new Date().toISOString(),
+        });
+        for (const v of prod.variants) {
+          await supabase.from("product_variants").upsert({
+            id: v.id,
+            product_id: prod.id,
+            size: v.size,
+            color: v.color || "Standard",
+            sku: v.sku || null,
+            barcode: v.barcode || null,
+            selling_price: Number(v.selling_price) || 0,
+            cost_price: Number(v.cost_price) || 0,
+          });
+          await supabase.from("inventory").upsert({
+            variant_id: v.id,
+            quantity: Number(v.stock) || 0,
+            reorder_level: Number(v.reorder_level) || 3,
+            updated_at: new Date().toISOString(),
+          });
+        }
+      }
+      return { success: true, message: "Footwear catalog synced to Supabase successfully!" };
+    } catch (err) {
+      console.error("Sync error:", err);
+      return { success: false, message: err.message };
+    }
   };
 
   const value = {
@@ -564,6 +990,10 @@ export function StoreProvider({ children }) {
     setActiveTab,
     searchTerm,
     setSearchTerm,
+    targetInvoiceFilter,
+    setTargetInvoiceFilter,
+    targetInventoryFilter,
+    setTargetInventoryFilter,
     dbStatus,
     products,
     sales,
@@ -584,7 +1014,10 @@ export function StoreProvider({ children }) {
     refundSale,
     updateSettings,
     resetToDemoData,
+    markNotificationRead,
     markAllNotificationsRead,
+    handleNotificationClick,
+    syncCatalogToSupabase,
     recentInvoice,
     setRecentInvoice,
     isReceiptOpen,

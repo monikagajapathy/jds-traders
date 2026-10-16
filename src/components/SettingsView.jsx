@@ -13,7 +13,7 @@ import {
 import { useStore } from "../context/StoreContext.jsx";
 
 export default function SettingsView() {
-  const { settings, updateSettings, dbStatus, resetToDemoData } = useStore();
+  const { settings, updateSettings, dbStatus, resetToDemoData, syncCatalogToSupabase } = useStore();
   const [formData, setFormData] = useState({ ...settings });
   const [savedAlert, setSavedAlert] = useState(false);
 
@@ -211,8 +211,8 @@ export default function SettingsView() {
                   <p>Supabase PostgreSQL integration and resilient local cache</p>
                 </div>
               </div>
-              <span className="small-tag">
-                {dbStatus.connected ? "SUPABASE ACTIVE" : "LOCAL CACHE"}
+              <span className="small-tag" style={{ background: dbStatus.connected ? "#dcfce7" : "#fef3c7", color: dbStatus.connected ? "#15803d" : "#b45309" }}>
+                {dbStatus.mode}
               </span>
             </div>
 
@@ -222,13 +222,58 @@ export default function SettingsView() {
                 <span>https://okfxktqbbpidnmencbye.supabase.co</span>
               </div>
               <div className="db-info">
-                <strong>Schema State:</strong>
-                <span>Tables verified (products, variants, inventory, sales, settings)</span>
+                <strong>Realtime Publication:</strong>
+                <span>products, product_variants, inventory, sales, payments, notifications</span>
               </div>
               <div className="db-info">
                 <strong>Offline-First Resilience:</strong>
                 <span style={{ color: "#16a34a", fontWeight: 600 }}>Active & Saving locally</span>
               </div>
+            </div>
+
+            {/* Cloud Sync & Action Row */}
+            <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "14px", marginTop: "14px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
+              <div>
+                <strong style={{ fontSize: "12px", color: "#101c35" }}>Sync Catalog & Stock to Supabase:</strong>
+                <p style={{ margin: "3px 0 0", fontSize: "11px", color: "#64748b" }}>
+                  Uploads all footwear models, sizes, barcoded variants, and inventory levels to your Supabase PostgreSQL tables.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={async () => {
+                  if (syncCatalogToSupabase) {
+                    const res = await syncCatalogToSupabase();
+                    alert(res.message);
+                  }
+                }}
+              >
+                Sync to Supabase
+              </button>
+            </div>
+
+            {/* Supabase SQL Instructions */}
+            <div style={{ background: "#faf7f0", border: "1px solid #efe2c5", borderRadius: "8px", padding: "14px", marginTop: "14px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                <strong style={{ fontSize: "12px", color: "#7c632e" }}>
+                  Supabase Realtime & DB Tables Setup Script (schema.sql)
+                </strong>
+                <button
+                  type="button"
+                  className="btn-chip"
+                  onClick={() => {
+                    const sql = `-- Run in Supabase SQL Editor: https://supabase.com/dashboard/project/okfxktqbbpidnmencbye/sql\n-- File: supabase/schema.sql in this project`;
+                    navigator.clipboard?.writeText(sql);
+                    alert("SQL schema file is saved at supabase/schema.sql in your project directory!");
+                  }}
+                >
+                  schema.sql saved in repo
+                </button>
+              </div>
+              <p style={{ margin: 0, fontSize: "11px", color: "#856404", lineHeight: "1.5" }}>
+                The complete SQL schema for tables (<code>products</code>, <code>product_variants</code>, <code>inventory</code>, <code>sales</code>, <code>sale_items</code>, <code>payments</code>, <code>notifications</code>, <code>settings</code>), RLS policies, and Realtime publications has been written to <strong>supabase/schema.sql</strong>.
+              </p>
             </div>
 
             <div className="settings-danger-zone">

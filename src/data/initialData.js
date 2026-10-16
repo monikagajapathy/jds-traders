@@ -306,7 +306,37 @@ export const initialSales = [
 ];
 
 export const initialNotifications = [
-  { id: "notif-1", title: "Low Stock Alert", message: "Woodland Boots (Camel, Size 8) has only 2 pairs left.", time: "10 mins ago", unread: true },
-  { id: "notif-2", title: "Sale Completed", message: "Invoice JDS-INV-2026-0038 for ₹2,519 via UPI.", time: "2 hours ago", unread: true },
-  { id: "notif-3", title: "Low Stock Alert", message: "Sparx Loafer (Navy Blue, Size 10) has only 1 pair left.", time: "4 hours ago", unread: false },
+  {
+    id: "notif-1",
+    title: "Low Stock Alert",
+    message: "Woodland Boots (Camel, Size 8) has only 2 pairs left.",
+    time: "10 mins ago",
+    unread: true,
+    type: "stock",
+    targetTab: "inventory",
+    productId: "prod-2",
+    productName: "Woodland Rugged Boots",
+  },
+  {
+    id: "notif-2",
+    title: "Sale Completed",
+    message: "Invoice JDS-INV-2026-0038 for ₹2,519 via UPI.",
+    time: "2 hours ago",
+    unread: true,
+    type: "sale",
+    targetTab: "transactions",
+    invoiceNo: "JDS-INV-2026-0038",
+    saleId: "sale-1001",
+  },
+  {
+    id: "notif-3",
+    title: "Low Stock Alert",
+    message: "Sparx Loafer (Navy Blue, Size 10) has only 1 pair left.",
+    time: "4 hours ago",
+    unread: false,
+    type: "stock",
+    targetTab: "inventory",
+    productId: "prod-4",
+    productName: "Sparx Loafer",
+  },
 ];

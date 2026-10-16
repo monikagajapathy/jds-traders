@@ -17,12 +17,26 @@ import { useStore } from "../context/StoreContext.jsx";
 import { formatINR } from "../utils/calculations.js";
 
 export default function TransactionsView() {
-  const { sales, refundSale, setRecentInvoice, setIsReceiptOpen } = useStore();
+  const {
+    sales,
+    refundSale,
+    setRecentInvoice,
+    setIsReceiptOpen,
+    targetInvoiceFilter,
+    setTargetInvoiceFilter,
+  } = useStore();
 
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(targetInvoiceFilter || "");
   const [paymentFilter, setPaymentFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
   const [dateFilter, setDateFilter] = useState("All");
+
+  useEffect(() => {
+    if (targetInvoiceFilter) {
+      setQuery(targetInvoiceFilter);
+      if (setTargetInvoiceFilter) setTargetInvoiceFilter("");
+    }
+  }, [targetInvoiceFilter, setTargetInvoiceFilter]);
 
   // Summary Metrics
   const summary = useMemo(() => {

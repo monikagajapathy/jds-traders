@@ -18,11 +18,26 @@ import { useStore } from "../context/StoreContext.jsx";
 import { formatINR } from "../utils/calculations.js";
 
 export default function InventoryView() {
-  const { products, addProduct, deleteProduct, adjustStock, bulkAdjustStock } = useStore();
+  const {
+    products,
+    addProduct,
+    deleteProduct,
+    adjustStock,
+    bulkAdjustStock,
+    targetInventoryFilter,
+    setTargetInventoryFilter,
+  } = useStore();
 
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(targetInventoryFilter || "");
   const [selectedCat, setSelectedCat] = useState("All");
   const [stockFilter, setStockFilter] = useState("All");
+
+  useEffect(() => {
+    if (targetInventoryFilter) {
+      setQuery(targetInventoryFilter);
+      if (setTargetInventoryFilter) setTargetInventoryFilter("");
+    }
+  }, [targetInventoryFilter, setTargetInventoryFilter]);
 
   // Modals state
   const [isAddOpen, setIsAddOpen] = useState(false);

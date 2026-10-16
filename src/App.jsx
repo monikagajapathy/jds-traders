@@ -63,6 +63,7 @@ function MainWorkspace() {
     setActiveTab,
     notifications,
     markAllNotificationsRead,
+    handleNotificationClick,
     dbStatus,
   } = useStore();
 
@@ -97,7 +98,7 @@ function MainWorkspace() {
         </nav>
 
         <div className="sidebar-footer">
-          <span className="online-dot" />
+          <span className={`online-dot ${dbStatus.connected ? "connected" : ""}`} />
           <span>
             {dbStatus.connected
               ? "Live PostgreSQL connected"
@@ -122,7 +123,7 @@ function MainWorkspace() {
               title={dbStatus.message}
               style={{ cursor: "default" }}
             >
-              <Wifi size={14} style={{ color: "#16a34a" }} />
+              <Wifi size={14} style={{ color: dbStatus.connected ? "#16a34a" : "#f59e0b" }} />
               <span>{dbStatus.mode}</span>
             </div>
 
@@ -143,7 +144,10 @@ function MainWorkspace() {
               {showNotifications && (
                 <div className="notifications-dropdown">
                   <div className="notif-header">
-                    <strong>Store Notifications</strong>
+                    <div>
+                      <strong>Store Notifications</strong>
+                      <span className="notif-sub-hint">Click any alert to navigate</span>
+                    </div>
                     {unreadCount > 0 && (
                       <button onClick={markAllNotificationsRead}>
                         Mark all read
@@ -166,13 +170,31 @@ function MainWorkspace() {
                       notifications.map((n) => (
                         <div
                           key={n.id}
-                          className={`notif-item ${n.unread ? "unread" : ""}`}
+                          className={`notif-item clickable ${n.unread ? "unread" : ""}`}
+                          onClick={() => {
+                            handleNotificationClick(n);
+                            setShowNotifications(false);
+                          }}
+                          role="button"
+                          tabIndex={0}
+                          title="Click to navigate directly to this item"
                         >
                           <div className="notif-item-title">
-                            <span>{n.title}</span>
+                            <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                              {n.type === "sale" && <span className="notif-tag sale">SALE</span>}
+                              {n.type === "stock" && <span className="notif-tag stock">STOCK</span>}
+                              <strong>{n.title}</strong>
+                            </span>
                             <span>{n.time}</span>
                           </div>
                           <p>{n.message}</p>
+                          <div className="notif-nav-action">
+                            {n.targetTab === "transactions" || n.type === "sale"
+                              ? "View Invoice & Receipt →"
+                              : n.targetTab === "inventory" || n.type === "stock"
+                              ? "Inspect Stock in Inventory →"
+                              : "Open Module →"}
+                          </div>
                         </div>
                       ))
                     )}
