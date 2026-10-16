@@ -165,13 +165,23 @@ create policy "POS public access settings" on public.settings for all to anon, a
 -- ==============================================================================
 -- 4. Enable Supabase Realtime for Multi-Terminal Synchronization
 -- ==============================================================================
-alter publication supabase_realtime add table public.products;
-alter publication supabase_realtime add table public.product_variants;
-alter publication supabase_realtime add table public.inventory;
-alter publication supabase_realtime add table public.sales;
-alter publication supabase_realtime add table public.sale_items;
-alter publication supabase_realtime add table public.payments;
-alter publication supabase_realtime add table public.notifications;
+do $$
+declare
+  tbl text;
+  tables text[] := array['products', 'product_variants', 'inventory', 'sales', 'sale_items', 'payments', 'notifications'];
+begin
+  foreach tbl in array tables
+  loop
+    if not exists (
+      select 1 from pg_publication_tables 
+      where pubname = 'supabase_realtime' 
+        and schemaname = 'public' 
+        and tablename = tbl
+    ) then
+      execute format('alter publication supabase_realtime add table public.%I', tbl);
+    end if;
+  end loop;
+end $$;
 
 -- Set replica identity to full so real-time broadcast contains complete row states
 alter table public.products replica identity full;
