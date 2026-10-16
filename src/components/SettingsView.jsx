@@ -13,7 +13,14 @@ import {
 import { useStore } from "../context/StoreContext.jsx";
 
 export default function SettingsView() {
-  const { settings, updateSettings, dbStatus, resetToDemoData, syncCatalogToSupabase } = useStore();
+  const {
+    settings,
+    updateSettings,
+    dbStatus,
+    resetToDemoData,
+    clearAllData,
+    syncCatalogToSupabase,
+  } = useStore();
   const [formData, setFormData] = useState({ ...settings });
   const [savedAlert, setSavedAlert] = useState(false);
 
@@ -22,6 +29,17 @@ export default function SettingsView() {
     updateSettings(formData);
     setSavedAlert(true);
     setTimeout(() => setSavedAlert(false), 3000);
+  };
+
+  const handleClearMock = () => {
+    if (
+      confirm(
+        "Are you sure you want to clear all mock products, transactions, and sample notifications to start with a fresh real-time store catalog?"
+      )
+    ) {
+      clearAllData();
+      alert("Mock details cleared! The store catalog is now clean and ready for your real inventory.");
+    }
   };
 
   const handleReset = () => {
@@ -278,9 +296,26 @@ export default function SettingsView() {
 
             <div className="settings-danger-zone">
               <div>
+                <strong>Clear Mock Data (Start Fresh Blank Store):</strong>
+                <p>
+                  Removes all mock footwear models, sample sales, and test notifications so you can begin entering your real inventory and real-time counter sales.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="btn-secondary"
+                style={{ borderColor: "#ef4444", color: "#b91c1c" }}
+                onClick={handleClearMock}
+              >
+                <RotateCcw size={14} /> Clear Mock Data
+              </button>
+            </div>
+
+            <div className="settings-danger-zone" style={{ marginTop: "10px" }}>
+              <div>
                 <strong>Re-seed Starter Footwear Catalog:</strong>
                 <p>
-                  Reset catalog with realistic footwear models (Bata, Woodland,
+                  Reset catalog with starter footwear models (Bata, Woodland,
                   Campus, Metro, Sparx) with sizes 6 to 10 and sample billing
                   history.
                 </p>

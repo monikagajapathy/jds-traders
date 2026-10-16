@@ -67,6 +67,27 @@ export default function BillingView() {
     });
   }, [products, selectedCategory, query]);
 
+  // Handle barcode scanner input (scanners typically type the barcode & press Enter)
+  const handleBarcodeKeyDown = (e) => {
+    if (e.key === "Enter" && query.trim()) {
+      const q = query.trim().toLowerCase();
+      for (const prod of products) {
+        const matchingVariant = prod.variants.find(
+          (v) =>
+            v.barcode?.toLowerCase() === q ||
+            v.sku?.toLowerCase() === q ||
+            (v.barcode && v.barcode.endsWith(q))
+        );
+        if (matchingVariant) {
+          e.preventDefault();
+          addToCart(matchingVariant, prod);
+          setQuery("");
+          return;
+        }
+      }
+    }
+  };
+
   // Compute Cart Calculations
   const subtotal = cart.reduce(
     (sum, item) => sum + (Number(item.unit_price ?? item.unitPrice) || 0) * item.quantity,
@@ -165,7 +186,8 @@ export default function BillingView() {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search footwear, article code (e.g. ART-101), brand or barcode..."
+            onKeyDown={handleBarcodeKeyDown}
+            placeholder="Scan barcode, or search article, brand, size..."
           />
           {query && (
             <button className="search-clear-btn" onClick={() => setQuery("")}>

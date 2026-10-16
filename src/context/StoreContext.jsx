@@ -782,7 +782,10 @@ export function StoreProvider({ children }) {
 
   // Product Operations
   const addProduct = (newProduct) => {
-    const prodId = `prod-${Date.now()}`;
+    // Generate valid RFC UUID for Supabase
+    const prodId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `00000000-0000-4000-8000-${Date.now().toString().slice(-12).padStart(12, "0")}`;
+    const cleanArt = newProduct.article_no.replace(/[^A-Z0-9]/gi, "").slice(-3).padStart(3, "0");
+
     const formatted = {
       ...newProduct,
       id: prodId,
@@ -793,17 +796,25 @@ export function StoreProvider({ children }) {
       sub_category: newProduct.sub_category || "Casual",
       tax_rate: Number(newProduct.tax_rate) || 5,
       is_active: true,
-      variants: newProduct.variants.map((v, i) => ({
-        id: `var-${Date.now()}-${i}`,
-        size: String(v.size),
-        color: v.color || "Standard",
-        cost_price: Number(v.cost_price) || 0,
-        selling_price: Number(v.selling_price) || 0,
-        sku: v.sku || `JDS-${newProduct.article_no}-${v.size}`,
-        barcode: v.barcode || `890${Date.now().toString().slice(-9)}`,
-        stock: Math.max(0, Number(v.stock) || 0),
-        reorder_level: Number(v.reorder_level) || 3,
-      })),
+      variants: newProduct.variants.map((v, i) => {
+        const vId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `00000000-0000-4000-8000-${(Date.now() + i + 1).toString().slice(-12).padStart(12, "0")}`;
+        const cleanSize = String(v.size).padStart(2, "0");
+        const randomCode = Math.floor(1000 + Math.random() * 9000);
+        const barcodeVal = v.barcode ? v.barcode.trim() : `890${cleanArt}${cleanSize}${randomCode}`;
+
+        return {
+          id: vId,
+          product_id: prodId,
+          size: String(v.size),
+          color: v.color || "Standard",
+          cost_price: Number(v.cost_price) || 0,
+          selling_price: Number(v.selling_price) || 0,
+          sku: v.sku || `JDS-${newProduct.article_no}-${v.size}`,
+          barcode: barcodeVal,
+          stock: Math.max(0, Number(v.stock) || 0),
+          reorder_level: Number(v.reorder_level) || 3,
+        };
+      }),
     };
 
     setProducts((prev) => [formatted, ...prev]);
@@ -812,7 +823,7 @@ export function StoreProvider({ children }) {
       {
         id: `notif-prod-${Date.now()}`,
         title: "Product Added",
-        message: `New footwear model ${formatted.name} (${formatted.article_no}) added with ${formatted.variants.length} sizes.`,
+        message: `New footwear model ${formatted.name} (${formatted.article_no}) saved with ${formatted.variants.length} barcoded sizes.`,
         time: "Just now",
         unread: true,
         type: "stock",
@@ -822,6 +833,42 @@ export function StoreProvider({ children }) {
       },
       ...prev,
     ]);
+
+    // Push to Supabase backend immediately
+    if (supabase) {
+      (async () => {
+        try {
+          await supabase.from("products").insert({
+            id: formatted.id,
+            name: formatted.name,
+            brand: formatted.brand,
+            category: formatted.category,
+            article_no: formatted.article_no,
+            is_active: true,
+          });
+
+          for (const v of formatted.variants) {
+            await supabase.from("product_variants").insert({
+              id: v.id,
+              product_id: formatted.id,
+              size: v.size,
+              color: v.color,
+              sku: v.sku,
+              barcode: v.barcode,
+              selling_price: v.selling_price,
+              cost_price: v.cost_price,
+            });
+            await supabase.from("inventory").insert({
+              variant_id: v.id,
+              quantity: v.stock,
+              reorder_level: v.reorder_level,
+            });
+          }
+        } catch (err) {
+          console.warn("[Supabase Sync] Product creation sync notice:", err.message);
+        }
+      })();
+    }
 
     return formatted;
   };
@@ -961,13 +1008,38 @@ export function StoreProvider({ children }) {
     }
   };
 
-  // Sync entire local catalog to Supabase
+  // Helper to ensure valid RFC-4122 UUID for PostgreSQL
+  const toUUID = (str) => {
+    if (typeof str === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(str)) {
+      return str;
+    }
+    const hex = Array.from(String(str))
+      .map((c) => c.charCodeAt(0).toString(16))
+      .join("")
+      .padEnd(32, "0")
+      .slice(0, 32);
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-a${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
+  };
+
+  // Clear mock / demo data to start a real-time store with fresh inventory
+  const clearAllData = () => {
+    localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify([]));
+    localStorage.setItem(STORAGE_KEYS.SALES, JSON.stringify([]));
+    localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify([]));
+    setProducts([]);
+    setSales([]);
+    setNotifications([]);
+    setCart([]);
+  };
+
+  // Sync entire local catalog to Supabase with valid UUIDs & Barcodes
   const syncCatalogToSupabase = async () => {
     if (!supabase) return { success: false, message: "Supabase client not configured in .env" };
     try {
       for (const prod of products) {
-        await supabase.from("products").upsert({
-          id: prod.id,
+        const prodUUID = toUUID(prod.id);
+        const { error: prodErr } = await supabase.from("products").upsert({
+          id: prodUUID,
           name: prod.name,
           brand: prod.brand,
           category: prod.category,
@@ -975,29 +1047,35 @@ export function StoreProvider({ children }) {
           is_active: true,
           updated_at: new Date().toISOString(),
         });
+        if (prodErr) throw prodErr;
+
         for (const v of prod.variants) {
-          await supabase.from("product_variants").upsert({
-            id: v.id,
-            product_id: prod.id,
-            size: v.size,
+          const varUUID = toUUID(v.id);
+          const { error: varErr } = await supabase.from("product_variants").upsert({
+            id: varUUID,
+            product_id: prodUUID,
+            size: String(v.size),
             color: v.color || "Standard",
-            sku: v.sku || null,
+            sku: v.sku || `JDS-${prod.article_no}-${v.size}`,
             barcode: v.barcode || null,
             selling_price: Number(v.selling_price) || 0,
             cost_price: Number(v.cost_price) || 0,
           });
-          await supabase.from("inventory").upsert({
-            variant_id: v.id,
+          if (varErr) throw varErr;
+
+          const { error: invErr } = await supabase.from("inventory").upsert({
+            variant_id: varUUID,
             quantity: Number(v.stock) || 0,
             reorder_level: Number(v.reorder_level) || 3,
             updated_at: new Date().toISOString(),
           });
+          if (invErr) throw invErr;
         }
       }
-      return { success: true, message: "Footwear catalog synced to Supabase successfully!" };
+      return { success: true, message: "Footwear catalog, sizes & barcodes synced to Supabase successfully!" };
     } catch (err) {
       console.error("Sync error:", err);
-      return { success: false, message: err.message };
+      return { success: false, message: `Supabase sync error: ${err.message}` };
     }
   };
 
@@ -1030,6 +1108,7 @@ export function StoreProvider({ children }) {
     refundSale,
     updateSettings,
     resetToDemoData,
+    clearAllData,
     markNotificationRead,
     markAllNotificationsRead,
     handleNotificationClick,
