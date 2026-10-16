@@ -15,6 +15,7 @@ import {
   ChevronDown,
   LogOut,
   Lock,
+  X,
 } from "lucide-react";
 import { StoreProvider, useStore } from "./context/StoreContext.jsx";
 import BillingView from "./components/BillingView.jsx";
@@ -96,6 +97,8 @@ function MainWorkspace() {
     setActiveTab,
     notifications,
     markAllNotificationsRead,
+    clearNotification,
+    clearAllNotifications,
     handleNotificationClick,
     dbStatus,
     users,
@@ -312,25 +315,41 @@ function MainWorkspace() {
                   <div className="notif-header">
                     <div>
                       <strong>Store Notifications</strong>
-                      <span className="notif-sub-hint">Click any alert to navigate</span>
+                      <span className="notif-sub-hint">Click alert to open & clear</span>
                     </div>
-                    {unreadCount > 0 && (
-                      <button onClick={markAllNotificationsRead}>
-                        Mark all read
-                      </button>
-                    )}
+                    <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                      {unreadCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={markAllNotificationsRead}
+                          title="Mark all notifications as read"
+                        >
+                          Mark read
+                        </button>
+                      )}
+                      {notifications.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={clearAllNotifications}
+                          title="Clear all store notifications"
+                          style={{ color: "#dc2626" }}
+                        >
+                          Clear all
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <div className="notif-list">
                     {notifications.length === 0 ? (
                       <div
                         style={{
-                          padding: "16px",
+                          padding: "20px 16px",
                           textAlign: "center",
                           color: "#94a3b8",
                           fontSize: "11px",
                         }}
                       >
-                        No new notifications
+                        ✓ All notifications cleared
                       </div>
                     ) : (
                       notifications.map((n) => (
@@ -343,7 +362,7 @@ function MainWorkspace() {
                           }}
                           role="button"
                           tabIndex={0}
-                          title="Click to navigate directly to this item"
+                          title="Click to check details (clears notification)"
                         >
                           <div className="notif-item-title">
                             <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
@@ -351,7 +370,20 @@ function MainWorkspace() {
                               {n.type === "stock" && <span className="notif-tag stock">STOCK</span>}
                               <strong>{n.title}</strong>
                             </span>
-                            <span>{n.time}</span>
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                              <span>{n.time}</span>
+                              <button
+                                type="button"
+                                className="notif-dismiss-btn"
+                                title="Dismiss / Clear notification"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  clearNotification(n.id);
+                                }}
+                              >
+                                <X size={12} />
+                              </button>
+                            </div>
                           </div>
                           <p>{n.message}</p>
                           <div className="notif-nav-action">

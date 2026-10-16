@@ -5,6 +5,14 @@
 -- URL: https://supabase.com/dashboard/project/okfxktqbbpidnmencbye/sql
 -- ==============================================================================
 
+-- 0. Relax category check constraint on products so any footwear category can sync smoothly
+do $$
+begin
+  if exists (select 1 from pg_constraint where conname = 'products_category_check') then
+    alter table public.products drop constraint products_category_check;
+  end if;
+end $$;
+
 -- 1. Create notifications table if it doesn't exist
 create table if not exists public.notifications (
   id uuid primary key default gen_random_uuid(),

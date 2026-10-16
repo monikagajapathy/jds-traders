@@ -56,6 +56,18 @@ export default function SettingsView() {
     phone: "",
   });
 
+  const handleOpenEditUser = (u) => {
+    if (!isAdmin) return;
+    setEditUserForm({
+      id: u.id,
+      name: u.name,
+      role: u.name?.toLowerCase() === "raj" ? "Staff" : u.role,
+      pin: u.pin || "1234",
+      phone: u.phone || "",
+    });
+    setIsEditUserOpen(true);
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     updateSettings(formData);
@@ -293,17 +305,28 @@ export default function SettingsView() {
                     {users.map((u) => {
                       const isCurrent = u.id === currentUser?.id;
                       return (
-                        <tr key={u.id} style={{ background: isCurrent ? "#faf7f0" : "transparent" }}>
+                        <tr
+                          key={u.id}
+                          className={isAdmin ? "user-clickable-row" : ""}
+                          onClick={() => handleOpenEditUser(u)}
+                          style={{ background: isCurrent ? "#faf7f0" : "transparent" }}
+                          title={isAdmin ? `Click to edit ${u.name}'s details` : ""}
+                        >
                           <td>
                             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                               <div className="user-item-avatar" style={{ width: "28px", height: "28px", fontSize: "10px" }}>
                                 {u.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
                               </div>
-                              <div>
+                              <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
                                 <strong>{u.name}</strong>
                                 {isCurrent && (
-                                  <span className="small-tag" style={{ marginLeft: "6px", fontSize: "8px", padding: "2px 5px" }}>
+                                  <span className="small-tag" style={{ fontSize: "8px", padding: "2px 5px" }}>
                                     CURRENT ACTIVE
+                                  </span>
+                                )}
+                                {isAdmin && (
+                                  <span className="user-click-edit-hint">
+                                    Click to edit
                                   </span>
                                 )}
                               </div>
@@ -324,42 +347,24 @@ export default function SettingsView() {
                             </span>
                           </td>
                           {isAdmin ? (
-                            <td style={{ textAlign: "center" }}>
-                              <div style={{ display: "flex", gap: "6px", justifyContent: "center" }}>
+                            <td style={{ textAlign: "center" }} onClick={(e) => e.stopPropagation()}>
+                              {users.length > 1 && u.name.toLowerCase() !== "moni" ? (
                                 <button
                                   type="button"
-                                  className="btn-tiny"
-                                  title="Edit User Details"
-                                  onClick={() => {
-                                    setEditUserForm({
-                                      id: u.id,
-                                      name: u.name,
-                                      role: u.name.toLowerCase() === "raj" ? "Staff" : u.role,
-                                      pin: u.pin || "1234",
-                                      phone: u.phone || "",
-                                    });
-                                    setIsEditUserOpen(true);
+                                  className="btn-tiny-danger"
+                                  title={`Remove user ${u.name}`}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (confirm(`Remove user ${u.name}?`)) {
+                                      deleteUser(u.id);
+                                    }
                                   }}
                                 >
-                                  <Edit3 size={11} /> Edit
+                                  <Trash2 size={11} /> Delete
                                 </button>
-                                {users.length > 1 && u.name.toLowerCase() !== "moni" ? (
-                                  <button
-                                    type="button"
-                                    className="btn-tiny-danger"
-                                    title="Delete User"
-                                    onClick={() => {
-                                      if (confirm(`Remove user ${u.name}?`)) {
-                                        deleteUser(u.id);
-                                      }
-                                    }}
-                                  >
-                                    <Trash2 size={11} />
-                                  </button>
-                                ) : (
-                                  <span style={{ fontSize: "10px", color: "#94a3b8", alignSelf: "center" }}>Admin</span>
-                                )}
-                              </div>
+                              ) : (
+                                <span style={{ fontSize: "10px", color: "#94a3b8" }}>Primary Admin</span>
+                              )}
                             </td>
                           ) : (
                             <td style={{ textAlign: "center", color: "#94a3b8", fontSize: "10px" }}>
@@ -677,6 +682,21 @@ export default function SettingsView() {
               </div>
 
               <div className="modal-footer">
+                {users.length > 1 && editUserForm.name?.toLowerCase() !== "moni" && (
+                  <button
+                    type="button"
+                    className="btn-danger"
+                    style={{ marginRight: "auto", padding: "6px 14px", fontSize: "11px" }}
+                    onClick={() => {
+                      if (confirm(`Are you sure you want to delete user ${editUserForm.name}?`)) {
+                        deleteUser(editUserForm.id);
+                        setIsEditUserOpen(false);
+                      }
+                    }}
+                  >
+                    <Trash2 size={13} /> Delete User
+                  </button>
+                )}
                 <button
                   type="button"
                   className="btn-secondary"

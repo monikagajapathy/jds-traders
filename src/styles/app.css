@@ -555,6 +555,12 @@
 .notif-item p { margin: 3px 0 0; color: #64748b; font-size: 10px; line-height: 1.4; }
 .notif-nav-action { margin-top: 5px; font-size: 9px; font-weight: 700; color: #2563eb; display: flex; align-items: center; gap: 3px; }
 .notif-item:hover .notif-nav-action { text-decoration: underline; }
+.notif-dismiss-btn { border: 0; background: transparent; color: #94a3b8; cursor: pointer; padding: 2px 4px; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; transition: all .15s ease; }
+.notif-dismiss-btn:hover { color: #dc2626; background: #fee2e2; }
+.user-clickable-row { cursor: pointer; transition: background-color .15s ease; }
+.user-clickable-row:hover { background-color: #f7f2e7 !important; }
+.user-click-edit-hint { font-size: 9px; color: #7c632e; background: #faf3e4; border: 1px solid #efe2c5; padding: 2px 6px; border-radius: 4px; font-weight: 600; opacity: 0.85; transition: opacity .15s ease; }
+.user-clickable-row:hover .user-click-edit-hint { opacity: 1; background: #f5eedb; border-color: #c5a15c; color: #57441c; }
 .online-dot.connected { background: #16a34a !important; box-shadow: 0 0 6px #16a34a; }
 
 /* Badge Pill Split */

@@ -1291,21 +1291,33 @@ export function StoreProvider({ children }) {
     if (supabase) {
       (async () => {
         try {
-          await supabase.from("product_variants").insert({
-            id: newVariant.id,
-            product_id: prod.id,
-            size: newVariant.size,
+          const { data: pData } = await supabase
+            .from("products")
+            .select("id")
+            .eq("article_no", prod.article_no)
+            .limit(1);
+          const prodUUID = pData?.[0]?.id || toUUID(prod.id);
+          const varUUID = toUUID(newVariant.id);
+
+          const { data: vData, error: varErr } = await supabase.from("product_variants").upsert({
+            id: varUUID,
+            product_id: prodUUID,
+            size: String(newVariant.size),
             color: newVariant.color,
             sku: newVariant.sku,
             barcode: newVariant.barcode,
-            selling_price: newVariant.selling_price,
-            cost_price: newVariant.cost_price,
-          });
-          await supabase.from("inventory").insert({
-            variant_id: newVariant.id,
-            quantity: newVariant.stock,
-            reorder_level: newVariant.reorder_level,
-          });
+            selling_price: Number(newVariant.selling_price) || 0,
+            cost_price: Number(newVariant.cost_price) || 0,
+          }, { onConflict: "sku" }).select("id");
+          if (varErr) throw varErr;
+
+          const savedVarId = vData?.[0]?.id || varUUID;
+          await supabase.from("inventory").upsert({
+            variant_id: savedVarId,
+            quantity: Number(newVariant.stock) || 0,
+            reorder_level: Number(newVariant.reorder_level) || 3,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: "variant_id" });
         } catch (err) {
           console.warn("[Supabase Sync] Add variant notice:", err.message);
         }
@@ -1418,10 +1430,28 @@ export function StoreProvider({ children }) {
     }
   };
 
-  // Clickable notification handler with contextual navigation and precise element highlighting
+  // Clear single notification after clicking and checking or explicit dismissal
+  const clearNotification = (id) => {
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+    if (supabase) {
+      supabase.from("notifications").delete().eq("id", id).then(() => {});
+    }
+  };
+
+  // Clear all notifications completely
+  const clearAllNotifications = () => {
+    setNotifications([]);
+    if (supabase) {
+      supabase.from("notifications").delete().neq("id", "0").then(() => {});
+    }
+  };
+
+  // Clickable notification handler: clears notification after clicking/checking and navigates directly with pinpoint highlighting
   const handleNotificationClick = (notification) => {
     if (!notification) return;
-    markNotificationRead(notification.id);
+    
+    // Feature: let the notification be cleared after clicking and checking that
+    clearNotification(notification.id);
 
     const target =
       notification.targetTab ||
@@ -1487,43 +1517,54 @@ export function StoreProvider({ children }) {
     setCart([]);
   };
 
-  // Sync entire local catalog to Supabase with valid UUIDs & Barcodes
+  // Category mapping helper to conform strictly with PostgreSQL table check constraints
+  const mapCategoryForSupabase = (cat) => {
+    if (!cat) return "Gents";
+    const s = String(cat).trim().toLowerCase();
+    if (s.includes("girl")) return "Girls";
+    if (s.includes("women") || s.includes("ladies") || s.includes("female")) return "Ladies";
+    if (s.includes("boy")) return "Boys";
+    if (s.includes("kid") || s.includes("child")) return "Boys";
+    if (s.includes("men") || s.includes("gents") || s.includes("male")) return "Gents";
+    return "Gents";
+  };
+
+  // Sync entire local catalog to Supabase with valid UUIDs, Barcodes, and PostgreSQL constraint compliance
   const syncCatalogToSupabase = async () => {
     if (!supabase) return { success: false, message: "Supabase client not configured in .env" };
     try {
       for (const prod of products) {
-        const prodUUID = toUUID(prod.id);
-        const { error: prodErr } = await supabase.from("products").upsert({
-          id: prodUUID,
+        const { data: prodData, error: prodErr } = await supabase.from("products").upsert({
           name: prod.name,
           brand: prod.brand,
-          category: prod.category,
+          category: mapCategoryForSupabase(prod.category),
           article_no: prod.article_no,
           is_active: true,
           updated_at: new Date().toISOString(),
-        });
+        }, { onConflict: "article_no" }).select("id");
         if (prodErr) throw prodErr;
+        const prodUUID = prodData?.[0]?.id || toUUID(prod.id);
 
         for (const v of prod.variants) {
-          const varUUID = toUUID(v.id);
-          const { error: varErr } = await supabase.from("product_variants").upsert({
-            id: varUUID,
+          const sku = v.sku || `JDS-${prod.article_no}-${v.size}`;
+          const { data: varData, error: varErr } = await supabase.from("product_variants").upsert({
             product_id: prodUUID,
             size: String(v.size),
             color: v.color || "Standard",
-            sku: v.sku || `JDS-${prod.article_no}-${v.size}`,
+            sku: sku,
             barcode: v.barcode || null,
             selling_price: Number(v.selling_price) || 0,
             cost_price: Number(v.cost_price) || 0,
-          });
+          }, { onConflict: "sku" }).select("id");
           if (varErr) throw varErr;
+          const varUUID = varData?.[0]?.id || toUUID(v.id);
 
           const { error: invErr } = await supabase.from("inventory").upsert({
             variant_id: varUUID,
             quantity: Number(v.stock) || 0,
             reorder_level: Number(v.reorder_level) || 3,
             updated_at: new Date().toISOString(),
-          });
+          }, { onConflict: "variant_id" });
           if (invErr) throw invErr;
         }
       }
@@ -1582,6 +1623,8 @@ export function StoreProvider({ children }) {
     clearAllData,
     markNotificationRead,
     markAllNotificationsRead,
+    clearNotification,
+    clearAllNotifications,
     handleNotificationClick,
     syncCatalogToSupabase,
     recentInvoice,

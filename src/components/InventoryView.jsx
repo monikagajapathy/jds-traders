@@ -146,8 +146,18 @@ export default function InventoryView() {
   // Filtered Products
   const filteredProducts = useMemo(() => {
     return products.filter((prod) => {
-      // Category filter
-      if (selectedCat !== "All" && prod.category !== selectedCat) return false;
+      // Category filter (flexible matching for Gents/Men, Ladies/Women, Boys/Kids, Girls)
+      if (selectedCat !== "All") {
+        const c = String(prod.category || "").toLowerCase();
+        const sc = selectedCat.toLowerCase();
+        const match =
+          c === sc ||
+          (sc === "gents" && (c.includes("men") || c === "gents")) ||
+          (sc === "ladies" && (c.includes("women") || c === "ladies")) ||
+          (sc === "boys" && (c.includes("boy") || c.includes("kid"))) ||
+          (sc === "girls" && (c.includes("girl") || c.includes("kid")));
+        if (!match) return false;
+      }
 
       // Stock status filter
       const totalStock = prod.variants.reduce((s, v) => s + (v.stock || 0), 0);
@@ -257,7 +267,7 @@ export default function InventoryView() {
       article_no: "",
       name: "",
       brand: "JD Signature",
-      category: "Men",
+      category: "Gents",
       sub_category: "Casual",
       tax_rate: 12,
       variants: [
@@ -362,9 +372,10 @@ export default function InventoryView() {
               className="select-filter"
             >
               <option value="All">All Categories</option>
-              <option value="Men">Men's Footwear</option>
-              <option value="Women">Women's Footwear</option>
-              <option value="Kids">Kids' Footwear</option>
+              <option value="Gents">Gents (Men's Footwear)</option>
+              <option value="Ladies">Ladies (Women's Footwear)</option>
+              <option value="Boys">Boys (Kids' Footwear)</option>
+              <option value="Girls">Girls (Kids' Footwear)</option>
             </select>
 
             <select
@@ -634,9 +645,10 @@ export default function InventoryView() {
                       setNewProd({ ...newProd, category: e.target.value })
                     }
                   >
-                    <option value="Men">Men</option>
-                    <option value="Women">Women</option>
-                    <option value="Kids">Kids</option>
+                    <option value="Gents">Gents (Men's Footwear)</option>
+                    <option value="Ladies">Ladies (Women's Footwear)</option>
+                    <option value="Boys">Boys (Kids' Footwear)</option>
+                    <option value="Girls">Girls (Kids' Footwear)</option>
                   </select>
                 </div>
 
