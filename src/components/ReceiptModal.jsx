@@ -12,6 +12,30 @@ export default function ReceiptModal() {
     window.print();
   };
 
+  const invoiceSubtotal =
+    Number(recentInvoice.subtotal) > 0
+      ? Number(recentInvoice.subtotal)
+      : (recentInvoice.items?.reduce(
+          (sum, it) =>
+            sum +
+            (Number(it.unit_price ?? it.unitPrice) || 0) *
+              (Number(it.quantity) || 1),
+          0
+        ) || 0);
+
+  const discountAmount = Number(recentInvoice.discount_amount) || 0;
+  const taxRate = Number(recentInvoice.tax_rate) || settings.default_tax_rate || 5;
+  const taxableAmount = Math.max(0, invoiceSubtotal - discountAmount);
+  const taxAmount =
+    Number(recentInvoice.tax_amount) > 0
+      ? Number(recentInvoice.tax_amount)
+      : (taxableAmount * taxRate) / 100;
+
+  const grandTotal =
+    Number(recentInvoice.total) > 0
+      ? Number(recentInvoice.total)
+      : Math.round((taxableAmount + taxAmount) * 100) / 100;
+
   return (
     <div className="modal-backdrop" onClick={() => setIsReceiptOpen(false)}>
       <div className="modal-content receipt-modal" onClick={(e) => e.stopPropagation()}>
@@ -63,7 +87,11 @@ export default function ReceiptModal() {
             </div>
             <div style={{ textAlign: "right" }}>
               <span className="meta-label">PAYMENT MODE:</span>
-              <span className="payment-pill">{recentInvoice.payment_method}</span>
+              <span className="payment-pill">
+                {recentInvoice.payment_method === "Split"
+                  ? "Split (Cash + UPI)"
+                  : recentInvoice.payment_method}
+              </span>
             </div>
           </div>
 
@@ -79,47 +107,65 @@ export default function ReceiptModal() {
               </tr>
             </thead>
             <tbody>
-              {recentInvoice.items.map((item, idx) => (
-                <tr key={idx}>
-                  <td>{idx + 1}</td>
-                  <td>
-                    <strong>{item.product_name}</strong>
-                    <div className="item-sub">
-                      {item.brand} • {item.article_no}
-                    </div>
-                  </td>
-                  <td style={{ textAlign: "center" }}>
-                    <span className="receipt-size-badge">{item.size}</span>
-                  </td>
-                  <td style={{ textAlign: "center" }}>{item.quantity}</td>
-                  <td style={{ textAlign: "right" }}>{formatINR(item.unit_price)}</td>
-                  <td style={{ textAlign: "right" }}>
-                    {formatINR(item.unit_price * item.quantity)}
-                  </td>
-                </tr>
-              ))}
+              {recentInvoice.items?.map((item, idx) => {
+                const itemRate = Number(item.unit_price ?? item.unitPrice) || 0;
+                const itemQty = Number(item.quantity) || 1;
+                return (
+                  <tr key={idx}>
+                    <td>{idx + 1}</td>
+                    <td>
+                      <strong>{item.product_name}</strong>
+                      <div className="item-sub">
+                        {item.brand} • {item.article_no}
+                      </div>
+                    </td>
+                    <td style={{ textAlign: "center" }}>
+                      <span className="receipt-size-badge">{item.size}</span>
+                    </td>
+                    <td style={{ textAlign: "center" }}>{itemQty}</td>
+                    <td style={{ textAlign: "right" }}>{formatINR(itemRate)}</td>
+                    <td style={{ textAlign: "right" }}>
+                      {formatINR(itemRate * itemQty)}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
 
           <div className="receipt-totals-section">
             <div className="receipt-totals-row">
               <span>Subtotal:</span>
-              <span>{formatINR(recentInvoice.subtotal)}</span>
+              <span>{formatINR(invoiceSubtotal)}</span>
             </div>
-            {recentInvoice.discount_amount > 0 && (
+            {discountAmount > 0 && (
               <div className="receipt-totals-row discount-row">
                 <span>Discount:</span>
-                <span>- {formatINR(recentInvoice.discount_amount)}</span>
+                <span>- {formatINR(discountAmount)}</span>
               </div>
             )}
             <div className="receipt-totals-row">
-              <span>GST ({recentInvoice.tax_rate || settings.default_tax_rate}%):</span>
-              <span>{formatINR(recentInvoice.tax_amount)}</span>
+              <span>GST ({taxRate}%):</span>
+              <span>{formatINR(taxAmount)}</span>
             </div>
             <div className="receipt-grand-total">
               <span>Grand Total:</span>
-              <strong>{formatINR(recentInvoice.total)}</strong>
+              <strong>{formatINR(grandTotal)}</strong>
             </div>
+
+            {/* Split Payment Details */}
+            {recentInvoice.payment_method === "Split" && recentInvoice.payment_split && (
+              <div className="receipt-split-breakdown">
+                <div className="receipt-totals-row" style={{ marginTop: "6px" }}>
+                  <span>Paid by Cash:</span>
+                  <strong>{formatINR(recentInvoice.payment_split.cash || 0)}</strong>
+                </div>
+                <div className="receipt-totals-row">
+                  <span>Paid by UPI:</span>
+                  <strong>{formatINR(recentInvoice.payment_split.upi || 0)}</strong>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="receipt-footer">

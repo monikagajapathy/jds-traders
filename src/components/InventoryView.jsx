@@ -18,7 +18,7 @@ import { useStore } from "../context/StoreContext.jsx";
 import { formatINR } from "../utils/calculations.js";
 
 export default function InventoryView() {
-  const { products, addProduct, deleteProduct, adjustStock } = useStore();
+  const { products, addProduct, deleteProduct, adjustStock, bulkAdjustStock } = useStore();
 
   const [query, setQuery] = useState("");
   const [selectedCat, setSelectedCat] = useState("All");
@@ -27,9 +27,10 @@ export default function InventoryView() {
   // Modals state
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isAdjustOpen, setIsAdjustOpen] = useState(false);
-  const [adjustTarget, setAdjustTarget] = useState(null); // { variantId, productName, size, currentStock }
-  const [adjustDelta, setAdjustDelta] = useState(5);
+  const [adjustProduct, setAdjustProduct] = useState(null);
+  const [multiSizeAdjustments, setMultiSizeAdjustments] = useState([]);
   const [adjustReason, setAdjustReason] = useState("Restock Delivery");
+  const [adjustNote, setAdjustNote] = useState("");
 
   // New product form state
   const [newProd, setNewProd] = useState({
@@ -98,27 +99,74 @@ export default function InventoryView() {
     });
   }, [products, selectedCat, stockFilter, query]);
 
-  // Open Adjust Modal for a specific variant
-  const handleOpenAdjust = (prod, variant) => {
-    setAdjustTarget({
-      variantId: variant.id,
-      productName: prod.name,
-      articleNo: prod.article_no,
-      size: variant.size,
-      currentStock: variant.stock || 0,
-    });
-    setAdjustDelta(5);
+  // Open Multi-Size Adjust Modal for a product (all sizes available to adjust at once)
+  const handleOpenAdjust = (prod) => {
+    setAdjustProduct(prod);
+    setMultiSizeAdjustments(
+      prod.variants.map((v) => ({
+        variantId: v.id,
+        size: v.size,
+        color: v.color || "Standard",
+        sku: v.sku,
+        currentStock: v.stock || 0,
+        newStock: v.stock || 0,
+      }))
+    );
     setAdjustReason("Restock Delivery");
+    setAdjustNote("");
     setIsAdjustOpen(true);
   };
 
-  const handleApplyAdjust = () => {
-    if (!adjustTarget) return;
-    adjustStock(
-      adjustTarget.variantId,
-      Number(adjustDelta),
+  const handleUpdateSizeStock = (variantId, newQty) => {
+    setMultiSizeAdjustments((prev) =>
+      prev.map((item) =>
+        item.variantId === variantId
+          ? { ...item, newStock: Math.max(0, Number(newQty) || 0) }
+          : item
+      )
+    );
+  };
+
+  const handleStepSizeStock = (variantId, step) => {
+    setMultiSizeAdjustments((prev) =>
+      prev.map((item) =>
+        item.variantId === variantId
+          ? { ...item, newStock: Math.max(0, item.newStock + step) }
+          : item
+      )
+    );
+  };
+
+  const handleBulkStepAll = (step) => {
+    setMultiSizeAdjustments((prev) =>
+      prev.map((item) => ({
+        ...item,
+        newStock: Math.max(0, item.newStock + step),
+      }))
+    );
+  };
+
+  const handleResetAdjustments = () => {
+    if (!adjustProduct) return;
+    setMultiSizeAdjustments(
+      adjustProduct.variants.map((v) => ({
+        variantId: v.id,
+        size: v.size,
+        color: v.color || "Standard",
+        sku: v.sku,
+        currentStock: v.stock || 0,
+        newStock: v.stock || 0,
+      }))
+    );
+  };
+
+  const handleSaveBulkAdjust = () => {
+    if (!adjustProduct) return;
+    bulkAdjustStock(
+      adjustProduct.id,
+      multiSizeAdjustments,
       adjustReason,
-      `From ${adjustTarget.currentStock} pairs`
+      adjustNote
     );
     setIsAdjustOpen(false);
   };
@@ -340,8 +388,8 @@ export default function InventoryView() {
                                 className={`size-inventory-pill ${
                                   isLow ? "low" : ""
                                 }`}
-                                onClick={() => handleOpenAdjust(prod, v)}
-                                title={`Click to adjust stock for Size ${v.size} (${v.color})`}
+                                onClick={() => handleOpenAdjust(prod)}
+                                title={`Click to adjust sizes for ${prod.name}`}
                               >
                                 <span className="s-size">{v.size}</span>
                                 <span className="s-qty">{v.stock}</span>
@@ -380,8 +428,8 @@ export default function InventoryView() {
                         <div style={{ display: "flex", gap: "6px", justifyContent: "center" }}>
                           <button
                             className="btn-tiny"
-                            onClick={() => handleOpenAdjust(prod, prod.variants[0])}
-                            title="Adjust Stock"
+                            onClick={() => handleOpenAdjust(prod)}
+                            title="Adjust All Sizes Stock"
                           >
                             Adjust
                           </button>
@@ -582,18 +630,18 @@ export default function InventoryView() {
         </div>
       )}
 
-      {/* MODAL: QUICK ADJUST STOCK */}
-      {isAdjustOpen && adjustTarget && (
+      {/* MODAL: MULTI-SIZE STOCK ADJUSTMENT */}
+      {isAdjustOpen && adjustProduct && (
         <div className="modal-backdrop" onClick={() => setIsAdjustOpen(false)}>
           <div
-            className="modal-content adjust-modal"
+            className="modal-content multi-adjust-modal"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="modal-header">
               <div>
-                <h3>Quick Stock Adjustment</h3>
+                <h3>Stock Adjustment: {adjustProduct.name}</h3>
                 <p>
-                  {adjustTarget.productName} ({adjustTarget.articleNo})
+                  Article: <strong>{adjustProduct.article_no}</strong> • Brand: {adjustProduct.brand} • {adjustProduct.category}
                 </p>
               </div>
               <button
@@ -604,71 +652,177 @@ export default function InventoryView() {
               </button>
             </div>
 
-            <div className="adjust-modal-body">
-              <div className="current-stock-callout">
-                <span>Selected Size:</span>
-                <strong>Size {adjustTarget.size}</strong>
-                <span>Current Stock:</span>
-                <strong>{adjustTarget.currentStock} pairs</strong>
+            <div className="multi-adjust-body">
+              {/* Quick Bulk Presets */}
+              <div className="bulk-presets-bar">
+                <span className="bulk-presets-label">Bulk Apply to All Sizes:</span>
+                <div className="delta-presets">
+                  <button
+                    type="button"
+                    className="btn-chip"
+                    onClick={() => handleBulkStepAll(1)}
+                  >
+                    +1 to All Sizes
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-chip"
+                    onClick={() => handleBulkStepAll(5)}
+                  >
+                    +5 to All Sizes (Box)
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-chip"
+                    onClick={() => handleBulkStepAll(10)}
+                  >
+                    +10 to All Sizes
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-chip danger"
+                    onClick={() => handleBulkStepAll(-1)}
+                  >
+                    -1 All
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-chip"
+                    onClick={handleResetAdjustments}
+                    title="Reset to current stock"
+                  >
+                    <RotateCcw size={11} /> Reset
+                  </button>
+                </div>
               </div>
 
-              <div className="form-field" style={{ marginTop: "16px" }}>
-                <label>Stock Change (Quantity Delta)</label>
-                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+              {/* Sizes Adjustment Table */}
+              <div className="adjust-sizes-table-wrap">
+                <table className="custom-table adjust-table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: "90px" }}>Size</th>
+                      <th>Color / SKU</th>
+                      <th style={{ textAlign: "center", width: "90px" }}>Current</th>
+                      <th style={{ textAlign: "center", width: "170px" }}>Adjust Quantity</th>
+                      <th style={{ textAlign: "center", width: "90px" }}>Change</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {multiSizeAdjustments.map((item) => {
+                      const delta = item.newStock - item.currentStock;
+                      return (
+                        <tr key={item.variantId}>
+                          <td>
+                            <span className="size-badge-bold">Size {item.size}</span>
+                          </td>
+                          <td>
+                            <span style={{ fontSize: "11px", color: "#475569" }}>
+                              {item.color}
+                            </span>
+                            {item.sku && (
+                              <div className="sub-text" style={{ fontSize: "9px" }}>
+                                {item.sku}
+                              </div>
+                            )}
+                          </td>
+                          <td style={{ textAlign: "center", fontWeight: 600 }}>
+                            {item.currentStock} pairs
+                          </td>
+                          <td style={{ textAlign: "center" }}>
+                            <div className="adjust-qty-control">
+                              <button
+                                type="button"
+                                className="qty-step-btn"
+                                onClick={() => handleStepSizeStock(item.variantId, -1)}
+                              >
+                                -
+                              </button>
+                              <input
+                                type="number"
+                                min="0"
+                                className="adjust-number-input"
+                                value={item.newStock}
+                                onChange={(e) =>
+                                  handleUpdateSizeStock(item.variantId, e.target.value)
+                                }
+                              />
+                              <button
+                                type="button"
+                                className="qty-step-btn"
+                                onClick={() => handleStepSizeStock(item.variantId, 1)}
+                              >
+                                +
+                              </button>
+                            </div>
+                          </td>
+                          <td style={{ textAlign: "center" }}>
+                            <span
+                              className={`delta-badge ${
+                                delta > 0 ? "plus" : delta < 0 ? "minus" : "zero"
+                              }`}
+                            >
+                              {delta > 0 ? `+${delta}` : delta === 0 ? "0" : delta}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Reason & Note */}
+              <div className="form-grid-2" style={{ marginTop: "16px" }}>
+                <div className="form-field">
+                  <label>Adjustment Reason</label>
+                  <select
+                    value={adjustReason}
+                    onChange={(e) => setAdjustReason(e.target.value)}
+                  >
+                    <option value="Restock Delivery">Restock Delivery / Carton Shipment</option>
+                    <option value="Physical Inventory Audit">Physical Store Audit</option>
+                    <option value="Damaged / Manufacturer Defect">Damaged / Defect Pairs</option>
+                    <option value="Customer Return">Customer Return</option>
+                    <option value="Transfer / Correction">Stock Correction</option>
+                  </select>
+                </div>
+
+                <div className="form-field">
+                  <label>Optional Reference / Note</label>
                   <input
-                    type="number"
-                    value={adjustDelta}
-                    onChange={(e) => setAdjustDelta(Number(e.target.value))}
-                    className="delta-input"
+                    type="text"
+                    placeholder="e.g. Invoice #PO-884 from distributor"
+                    value={adjustNote}
+                    onChange={(e) => setAdjustNote(e.target.value)}
                   />
-                  <div className="delta-presets">
-                    <button
-                      type="button"
-                      className="btn-chip"
-                      onClick={() => setAdjustDelta(5)}
-                    >
-                      +5 Restock
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-chip"
-                      onClick={() => setAdjustDelta(10)}
-                    >
-                      +10 Restock
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-chip danger"
-                      onClick={() => setAdjustDelta(-1)}
-                    >
-                      -1 Damaged
-                    </button>
-                  </div>
                 </div>
-                <div className="sub-text" style={{ marginTop: "5px" }}>
-                  New Stock will be:{" "}
-                  <strong>
-                    {Math.max(0, adjustTarget.currentStock + Number(adjustDelta))}{" "}
-                    pairs
-                  </strong>
-                </div>
-              </div>
-
-              <div className="form-field" style={{ marginTop: "14px" }}>
-                <label>Reason / Note</label>
-                <select
-                  value={adjustReason}
-                  onChange={(e) => setAdjustReason(e.target.value)}
-                >
-                  <option value="Restock Delivery">Restock Delivery / Shipment</option>
-                  <option value="Damaged / Defect">Damaged / Manufacturer Defect</option>
-                  <option value="Inventory Audit">Physical Inventory Audit</option>
-                  <option value="Customer Return">Customer Return</option>
-                </select>
               </div>
             </div>
 
             <div className="modal-footer">
+              <div style={{ marginRight: "auto", fontSize: "11px", color: "#64748b" }}>
+                Total Pairs:{" "}
+                <strong>
+                  {multiSizeAdjustments.reduce((sum, it) => sum + it.newStock, 0)} pairs
+                </strong>{" "}
+                (Net Change:{" "}
+                <span style={{ fontWeight: 700, color: multiSizeAdjustments.reduce((sum, it) => sum + (it.newStock - it.currentStock), 0) >= 0 ? "#16a34a" : "#dc2626" }}>
+                  {multiSizeAdjustments.reduce(
+                    (sum, it) => sum + (it.newStock - it.currentStock),
+                    0
+                  ) >= 0
+                    ? `+${multiSizeAdjustments.reduce(
+                        (sum, it) => sum + (it.newStock - it.currentStock),
+                        0
+                      )}`
+                    : multiSizeAdjustments.reduce(
+                        (sum, it) => sum + (it.newStock - it.currentStock),
+                        0
+                      )}
+                </span>
+                )
+              </div>
               <button
                 type="button"
                 className="btn-secondary"
@@ -679,9 +833,9 @@ export default function InventoryView() {
               <button
                 type="button"
                 className="btn-primary"
-                onClick={handleApplyAdjust}
+                onClick={handleSaveBulkAdjust}
               >
-                <Check size={16} /> Update Stock
+                <Check size={16} /> Save All Size Adjustments
               </button>
             </div>
           </div>

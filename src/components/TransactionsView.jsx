@@ -35,9 +35,14 @@ export default function TransactionsView() {
     let cardRev = 0;
 
     completed.forEach((s) => {
-      if (s.payment_method === "UPI") upiRev += s.total || 0;
-      else if (s.payment_method === "Cash") cashRev += s.total || 0;
-      else if (s.payment_method === "Card") cardRev += s.total || 0;
+      const sTotal = Number(s.total) > 0 ? Number(s.total) : (s.items?.reduce((sum, it) => sum + (Number(it.unit_price ?? it.unitPrice) || 0) * (Number(it.quantity) || 1), 0) || 0);
+      if (s.payment_method === "UPI") upiRev += sTotal;
+      else if (s.payment_method === "Cash") cashRev += sTotal;
+      else if (s.payment_method === "Card") cardRev += sTotal;
+      else if (s.payment_method === "Split") {
+        cashRev += Number(s.payment_split?.cash) || 0;
+        upiRev += Number(s.payment_split?.upi) || 0;
+      }
     });
 
     return {
@@ -54,8 +59,11 @@ export default function TransactionsView() {
   const filteredSales = useMemo(() => {
     return sales.filter((s) => {
       // Payment Filter
-      if (paymentFilter !== "All" && s.payment_method !== paymentFilter) {
-        return false;
+      if (paymentFilter !== "All") {
+        if (paymentFilter === "Split" && s.payment_method !== "Split") return false;
+        if (paymentFilter === "Cash" && s.payment_method !== "Cash" && !(s.payment_method === "Split" && (s.payment_split?.cash || 0) > 0)) return false;
+        if (paymentFilter === "UPI" && s.payment_method !== "UPI" && !(s.payment_method === "Split" && (s.payment_split?.upi || 0) > 0)) return false;
+        if (paymentFilter === "Card" && s.payment_method !== "Card") return false;
       }
 
       // Status Filter
@@ -217,6 +225,7 @@ export default function TransactionsView() {
               <option value="UPI">UPI / QR</option>
               <option value="Cash">Cash</option>
               <option value="Card">Card</option>
+              <option value="Split">Split (Cash + UPI)</option>
             </select>
 
             <select
@@ -258,76 +267,99 @@ export default function TransactionsView() {
                   </td>
                 </tr>
               ) : (
-                filteredSales.map((sale) => (
-                  <tr key={sale.id}>
-                    <td>
-                      <div style={{ display: "flex", flexDirection: "column" }}>
-                        <strong style={{ color: "#101c35", letterSpacing: "0.2px" }}>
-                          {sale.invoice_no}
-                        </strong>
-                        <span className="sub-text">
-                          {new Date(sale.created_at).toLocaleString("en-IN", {
-                            dateStyle: "medium",
-                            timeStyle: "short",
-                          })}
-                        </span>
-                      </div>
-                    </td>
+                filteredSales.map((sale) => {
+                  const saleFinalTotal =
+                    Number(sale.total) > 0
+                      ? Number(sale.total)
+                      : (sale.items?.reduce(
+                          (sum, it) =>
+                            sum +
+                            (Number(it.unit_price ?? it.unitPrice) || 0) *
+                              (Number(it.quantity) || 1),
+                          0
+                        ) || 0);
 
-                    <td>
-                      <div>
-                        <strong>{sale.customer?.name || "Walk-in Customer"}</strong>
-                        {sale.customer?.phone && (
-                          <div className="sub-text">{sale.customer.phone}</div>
-                        )}
-                      </div>
-                    </td>
+                  return (
+                    <tr key={sale.id}>
+                      <td>
+                        <div style={{ display: "flex", flexDirection: "column" }}>
+                          <strong style={{ color: "#101c35", letterSpacing: "0.2px" }}>
+                            {sale.invoice_no}
+                          </strong>
+                          <span className="sub-text">
+                            {new Date(sale.created_at).toLocaleString("en-IN", {
+                              dateStyle: "medium",
+                              timeStyle: "short",
+                            })}
+                          </span>
+                        </div>
+                      </td>
 
-                    <td>
-                      <div className="items-summary-list">
-                        {sale.items?.map((it, idx) => (
-                          <div key={idx} className="item-pill-small">
-                            {it.product_name} • <strong>Size {it.size}</strong> ({it.quantity})
+                      <td>
+                        <div>
+                          <strong>{sale.customer?.name || "Walk-in Customer"}</strong>
+                          {sale.customer?.phone && (
+                            <div className="sub-text">{sale.customer.phone}</div>
+                          )}
+                        </div>
+                      </td>
+
+                      <td>
+                        <div className="items-summary-list">
+                          {sale.items?.map((it, idx) => (
+                            <div key={idx} className="item-pill-small">
+                              {it.product_name} • <strong>Size {it.size}</strong> ({it.quantity})
+                            </div>
+                          ))}
+                        </div>
+                      </td>
+
+                      <td style={{ textAlign: "center" }}>
+                        {sale.payment_method === "Split" ? (
+                          <div>
+                            <span className="badge-pill split">Split</span>
+                            {sale.payment_split && (
+                              <div className="sub-text" style={{ fontSize: "9px", marginTop: "2px" }}>
+                                Cash: {formatINR(sale.payment_split.cash)} | UPI: {formatINR(sale.payment_split.upi)}
+                              </div>
+                            )}
                           </div>
-                        ))}
-                      </div>
-                    </td>
-
-                    <td style={{ textAlign: "center" }}>
-                      <span className={`badge-pill ${sale.payment_method?.toLowerCase()}`}>
-                        {sale.payment_method}
-                      </span>
-                    </td>
-
-                    <td style={{ textAlign: "center" }}>
-                      <span
-                        className={`status-chip ${
-                          sale.status === "Refunded" ? "refunded" : "paid"
-                        }`}
-                      >
-                        {sale.status === "Refunded" ? (
-                          <>
-                            <AlertCircle size={11} /> Refunded
-                          </>
                         ) : (
-                          <>
-                            <CheckCircle size={11} /> Paid
-                          </>
+                          <span className={`badge-pill ${sale.payment_method?.toLowerCase()}`}>
+                            {sale.payment_method}
+                          </span>
                         )}
-                      </span>
-                    </td>
+                      </td>
 
-                    <td style={{ textAlign: "right", fontWeight: 700, fontSize: "14px" }}>
-                      <span
-                        style={{
-                          textDecoration:
-                            sale.status === "Refunded" ? "line-through" : "none",
-                          color: sale.status === "Refunded" ? "#94a3b8" : "#101c35",
-                        }}
-                      >
-                        {formatINR(sale.total)}
-                      </span>
-                    </td>
+                      <td style={{ textAlign: "center" }}>
+                        <span
+                          className={`status-chip ${
+                            sale.status === "Refunded" ? "refunded" : "paid"
+                          }`}
+                        >
+                          {sale.status === "Refunded" ? (
+                            <>
+                              <AlertCircle size={11} /> Refunded
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle size={11} /> Paid
+                            </>
+                          )}
+                        </span>
+                      </td>
+
+                      <td style={{ textAlign: "right", fontWeight: 700, fontSize: "14px" }}>
+                        <span
+                          style={{
+                            textDecoration:
+                              sale.status === "Refunded" ? "line-through" : "none",
+                            color: sale.status === "Refunded" ? "#94a3b8" : "#101c35",
+                          }}
+                        >
+                          {formatINR(saleFinalTotal)}
+                        </span>
+                      </td>
 
                     <td style={{ textAlign: "center" }}>
                       <div style={{ display: "flex", gap: "6px", justifyContent: "center" }}>
@@ -350,8 +382,9 @@ export default function TransactionsView() {
                       </div>
                     </td>
                   </tr>
-                ))
-              )}
+                );
+              })
+            )}
             </tbody>
           </table>
         </div>

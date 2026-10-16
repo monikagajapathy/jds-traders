@@ -303,6 +303,45 @@
 .notif-item-title span { color: #94a3b8; font-weight: normal; font-size: 9px; }
 .notif-item p { margin: 3px 0 0; color: #64748b; font-size: 10px; line-height: 1.4; }
 
+/* Badge Pill Split */
+.badge-pill.split { background: #fef3c7; color: #b45309; }
+
+/* Split Payment Card */
+.split-payment-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-bottom: 11px; }
+.split-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 9px; }
+.split-title { font-size: 11px; font-weight: 700; color: #1e293b; }
+.split-status-badge { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; }
+.split-status-badge.balanced { background: #dcfce7; color: #15803d; }
+.split-status-badge.unbalanced { background: #fee2e2; color: #b91c1c; }
+.split-inputs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.split-field { display: flex; flex-direction: column; gap: 4px; }
+.split-field label { font-size: 10px; font-weight: 600; color: #475569; display: flex; align-items: center; gap: 4px; }
+.split-field input { border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 8px; font-size: 13px; font-weight: 700; color: #1e293b; background: #fff; outline: 0; }
+.split-field input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px #c5a15c1a; }
+.split-presets-row { display: flex; gap: 6px; margin-top: 8px; }
+
+/* Receipt Split Breakdown */
+.receipt-split-breakdown { border-top: 1px dashed #cbd5e1; margin-top: 8px; padding-top: 6px; }
+
+/* Multi-Size Stock Adjustment Modal */
+.multi-adjust-modal { max-width: 680px; }
+.multi-adjust-body { display: flex; flex-direction: column; gap: 14px; }
+.bulk-presets-bar { display: flex; align-items: center; justify-content: space-between; background: #faf7f0; border: 1px solid #efe2c5; border-radius: 8px; padding: 10px 14px; flex-wrap: wrap; gap: 8px; }
+.bulk-presets-label { font-size: 11px; font-weight: 700; color: #7c632e; }
+.adjust-sizes-table-wrap { max-height: 280px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; }
+.adjust-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.adjust-table th { background: #f8fafc; color: #64748b; font-weight: 700; padding: 8px 12px; font-size: 9px; text-transform: uppercase; border-bottom: 1px solid #e2e8f0; position: sticky; top: 0; z-index: 2; }
+.adjust-table td { padding: 9px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+.size-badge-bold { font-weight: 800; font-size: 12px; color: #101c35; background: #e2e8f0; padding: 3px 8px; border-radius: 5px; display: inline-block; }
+.adjust-qty-control { display: inline-flex; align-items: center; border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden; background: #fff; }
+.qty-step-btn { border: 0; background: #f8fafc; width: 28px; height: 30px; font-size: 14px; font-weight: 700; color: #334155; cursor: pointer; display: grid; place-items: center; transition: background .12s; }
+.qty-step-btn:hover { background: #e2e8f0; color: #101c35; }
+.adjust-number-input { width: 55px; height: 30px; border: 0; border-left: 1px solid #cbd5e1; border-right: 1px solid #cbd5e1; text-align: center; font-size: 13px; font-weight: 700; color: #1e293b; outline: 0; }
+.delta-badge { font-size: 10px; font-weight: 700; padding: 3px 7px; border-radius: 12px; display: inline-block; min-width: 32px; text-align: center; }
+.delta-badge.plus { background: #dcfce7; color: #15803d; }
+.delta-badge.minus { background: #fee2e2; color: #b91c1c; }
+.delta-badge.zero { background: #f1f5f9; color: #94a3b8; }
+
 @keyframes slideUp {
   from { transform: translateY(12px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }

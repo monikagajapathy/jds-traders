@@ -12,6 +12,7 @@ import {
   Tag,
   Check,
   Package,
+  Layers,
 } from "lucide-react";
 import { useStore } from "../context/StoreContext.jsx";
 import { formatINR } from "../utils/calculations.js";
@@ -36,6 +37,8 @@ export default function BillingView() {
   const [customerPhone, setCustomerPhone] = useState("");
   const [billDiscount, setBillDiscount] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState("UPI");
+  const [splitCash, setSplitCash] = useState(0);
+  const [splitUpi, setSplitUpi] = useState(0);
   const [taxRate, setTaxRate] = useState(settings.default_tax_rate || 5);
 
   // Filter products by search and category
@@ -66,17 +69,50 @@ export default function BillingView() {
 
   // Compute Cart Calculations
   const subtotal = cart.reduce(
-    (sum, item) => sum + item.unit_price * item.quantity,
+    (sum, item) => sum + (Number(item.unit_price ?? item.unitPrice) || 0) * item.quantity,
     0
   );
   const totalDiscount = Math.min(subtotal, Math.max(0, Number(billDiscount) || 0));
   const taxableAmount = Math.max(0, subtotal - totalDiscount);
   const taxAmount = (taxableAmount * Number(taxRate)) / 100;
-  const grandTotal = taxableAmount + taxAmount;
+  const grandTotal = Math.round((taxableAmount + taxAmount) * 100) / 100;
   const totalItemsCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+
+  // When switching to Split payment, initialize split amounts
+  const handleSelectPaymentMethod = (method) => {
+    setPaymentMethod(method);
+    if (method === "Split") {
+      const half = Math.round(grandTotal / 2);
+      setSplitCash(half);
+      setSplitUpi(grandTotal - half);
+    }
+  };
+
+  const handleCashChange = (val) => {
+    const cashVal = Math.max(0, Number(val) || 0);
+    setSplitCash(cashVal);
+    setSplitUpi(Math.max(0, Math.round((grandTotal - cashVal) * 100) / 100));
+  };
+
+  const handleUpiChange = (val) => {
+    const upiVal = Math.max(0, Number(val) || 0);
+    setSplitUpi(upiVal);
+    setSplitCash(Math.max(0, Math.round((grandTotal - upiVal) * 100) / 100));
+  };
 
   const handleCheckout = () => {
     if (cart.length === 0) return;
+
+    let splitData = null;
+    if (paymentMethod === "Split") {
+      const finalCash = Number(splitCash) || 0;
+      const finalUpi = Number(splitUpi) || 0;
+      splitData = {
+        cash: finalCash,
+        upi: finalUpi,
+      };
+    }
+
     completeCheckout({
       customer: {
         name: customerName.trim() || "Walk-in Customer",
@@ -85,11 +121,15 @@ export default function BillingView() {
       billDiscount: totalDiscount,
       taxRate: Number(taxRate),
       paymentMethod,
+      paymentSplit: splitData,
     });
+
     // Reset customer fields
     setCustomerName("");
     setCustomerPhone("");
     setBillDiscount(0);
+    setSplitCash(0);
+    setSplitUpi(0);
   };
 
   return (
@@ -366,12 +406,13 @@ export default function BillingView() {
               { id: "UPI", label: "UPI / QR", icon: QrCode },
               { id: "Cash", label: "Cash", icon: Banknote },
               { id: "Card", label: "Card", icon: CreditCard },
+              { id: "Split", label: "Split (Cash + UPI)", icon: Layers },
             ].map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
                 type="button"
                 className={`payment-pill-btn ${paymentMethod === id ? "active" : ""}`}
-                onClick={() => setPaymentMethod(id)}
+                onClick={() => handleSelectPaymentMethod(id)}
               >
                 <Icon size={13} />
                 <span>{label}</span>
@@ -379,6 +420,82 @@ export default function BillingView() {
               </button>
             ))}
           </div>
+
+          {/* Split Payment Controls */}
+          {paymentMethod === "Split" && (
+            <div className="split-payment-card">
+              <div className="split-header">
+                <span className="split-title">Split Bill Breakdown:</span>
+                <span
+                  className={`split-status-badge ${
+                    Math.abs(splitCash + splitUpi - grandTotal) < 0.01
+                      ? "balanced"
+                      : "unbalanced"
+                  }`}
+                >
+                  {Math.abs(splitCash + splitUpi - grandTotal) < 0.01
+                    ? "✓ Balanced"
+                    : `Diff: ₹${Math.abs(Math.round((grandTotal - (splitCash + splitUpi)) * 100) / 100)}`}
+                </span>
+              </div>
+
+              <div className="split-inputs-grid">
+                <div className="split-field">
+                  <label>
+                    <Banknote size={12} /> Cash Amount (₹)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max={grandTotal}
+                    step="any"
+                    value={splitCash || ""}
+                    onChange={(e) => handleCashChange(e.target.value)}
+                    placeholder="0"
+                  />
+                </div>
+
+                <div className="split-field">
+                  <label>
+                    <QrCode size={12} /> UPI Amount (₹)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max={grandTotal}
+                    step="any"
+                    value={splitUpi || ""}
+                    onChange={(e) => handleUpiChange(e.target.value)}
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+
+              <div className="split-presets-row">
+                <button
+                  type="button"
+                  className="btn-chip"
+                  onClick={() => {
+                    const half = Math.round((grandTotal / 2) * 100) / 100;
+                    setSplitCash(half);
+                    setSplitUpi(Math.round((grandTotal - half) * 100) / 100);
+                  }}
+                >
+                  50% Cash / 50% UPI
+                </button>
+                <button
+                  type="button"
+                  className="btn-chip"
+                  onClick={() => {
+                    const roundedCash = Math.min(grandTotal, Math.floor(grandTotal / 500) * 500 || 500);
+                    handleCashChange(roundedCash);
+                  }}
+                >
+                  Round Cash ₹500
+                </button>
+              </div>
+            </div>
+          )}
 
           <button
             className="checkout-button"

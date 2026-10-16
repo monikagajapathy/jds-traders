@@ -38,7 +38,32 @@ export function StoreProvider({ children }) {
   const [sales, setSales] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.SALES);
-      return saved ? JSON.parse(saved) : initialSales;
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Self-heal any corrupted sales where total is 0, null, or NaN
+        return parsed.map((s) => {
+          const itemsSubtotal = s.items?.reduce(
+            (sum, it) => sum + (Number(it.unit_price ?? it.unitPrice) || 0) * (Number(it.quantity) || 1),
+            0
+          ) || 0;
+          if ((!s.total || isNaN(s.total) || Number(s.total) === 0) && itemsSubtotal > 0) {
+            const disc = Number(s.discount_amount) || 0;
+            const taxable = Math.max(0, itemsSubtotal - disc);
+            const rate = Number(s.tax_rate) || 5;
+            const tax = (taxable * rate) / 100;
+            return {
+              ...s,
+              subtotal: itemsSubtotal,
+              discount_amount: disc,
+              tax_amount: tax,
+              tax_rate: rate,
+              total: Math.round((taxable + tax) * 100) / 100,
+            };
+          }
+          return s;
+        });
+      }
+      return initialSales;
     } catch {
       return initialSales;
     }
@@ -153,6 +178,7 @@ export function StoreProvider({ children }) {
             : item
         );
       }
+      const price = Number(variant.selling_price) || 0;
       return [
         ...prev,
         {
@@ -163,7 +189,8 @@ export function StoreProvider({ children }) {
           brand: product.brand,
           size: variant.size,
           color: variant.color || "Standard",
-          unit_price: Number(variant.selling_price),
+          unit_price: price,
+          unitPrice: price,
           cost_price: Number(variant.cost_price || 0),
           quantity: 1,
           discount_amount: 0,
@@ -212,21 +239,22 @@ export function StoreProvider({ children }) {
     billDiscount = 0,
     taxRate = 5,
     paymentMethod = "Cash",
+    paymentSplit = null,
     notes = "",
   }) => {
     if (cart.length === 0) return null;
 
     const subtotal = cart.reduce(
-      (sum, item) => sum + item.unitPrice * item.quantity,
+      (sum, item) => sum + (Number(item.unit_price ?? item.unitPrice) || 0) * (Number(item.quantity) || 1),
       0
     );
     const itemDiscounts = cart.reduce(
-      (sum, item) => sum + (item.discount_amount || 0) * item.quantity,
+      (sum, item) => sum + (Number(item.discount_amount) || 0) * (Number(item.quantity) || 1),
       0
     );
     const totalDiscount = Math.min(
       subtotal,
-      Number(billDiscount || 0) + itemDiscounts
+      Math.max(0, Number(billDiscount || 0)) + itemDiscounts
     );
     const taxableAmount = Math.max(0, subtotal - totalDiscount);
     const taxAmount = (taxableAmount * (Number(taxRate) || 0)) / 100;
@@ -251,20 +279,25 @@ export function StoreProvider({ children }) {
       tax_rate: taxRate,
       total: grandTotal,
       payment_method: paymentMethod,
+      payment_split: paymentMethod === "Split" ? paymentSplit : null,
       notes: notes || "Over-the-counter sale",
-      items: cart.map((item) => ({
-        product_id: item.product_id,
-        variant_id: item.variant_id,
-        product_name: item.product_name,
-        article_no: item.article_no,
-        brand: item.brand,
-        size: item.size,
-        color: item.color,
-        unit_price: item.unit_price,
-        cost_price: item.cost_price,
-        quantity: item.quantity,
-        discount_amount: item.discount_amount || 0,
-      })),
+      items: cart.map((item) => {
+        const itemPrice = Number(item.unit_price ?? item.unitPrice ?? 0);
+        return {
+          product_id: item.product_id,
+          variant_id: item.variant_id,
+          product_name: item.product_name,
+          article_no: item.article_no,
+          brand: item.brand,
+          size: item.size,
+          color: item.color,
+          unit_price: itemPrice,
+          unitPrice: itemPrice,
+          cost_price: Number(item.cost_price || 0),
+          quantity: Number(item.quantity) || 1,
+          discount_amount: Number(item.discount_amount) || 0,
+        };
+      }),
     };
 
     // Deduct stock from inventory
@@ -311,13 +344,17 @@ export function StoreProvider({ children }) {
     setSales((prev) => [newSale, ...prev]);
 
     // Add sale notification
+    const paymentLabel = paymentMethod === "Split"
+      ? `Split (Cash: ₹${paymentSplit?.cash || 0}, UPI: ₹${paymentSplit?.upi || 0})`
+      : paymentMethod;
+
     setNotifications((prev) => [
       {
         id: `notif-sale-${Date.now()}`,
         title: "Sale Completed",
         message: `Invoice ${newSale.invoice_no} completed for ₹${newSale.total.toLocaleString(
           "en-IN"
-        )} via ${newSale.payment_method}.`,
+        )} via ${paymentLabel}.`,
         time: "Just now",
         unread: true,
       },
@@ -332,7 +369,7 @@ export function StoreProvider({ children }) {
     return newSale;
   };
 
-  // Stock Adjustment
+  // Single Variant Stock Adjustment
   const adjustStock = (variantId, delta, reason = "Stock Adjustment", note = "") => {
     setProducts((prev) =>
       prev.map((prod) => {
@@ -357,6 +394,45 @@ export function StoreProvider({ children }) {
         message: `${delta > 0 ? `+${delta}` : delta} pairs updated (${reason}${
           note ? `: ${note}` : ""
         }).`,
+        time: "Just now",
+        unread: true,
+      },
+      ...prev,
+    ]);
+  };
+
+  // Multi-Size Bulk Stock Adjustment for a Footwear Article
+  const bulkAdjustStock = (productId, variantAdjustments, reason = "Stock Adjustment", note = "") => {
+    let totalPairsDelta = 0;
+    const adjMap = new Map();
+    variantAdjustments.forEach((adj) => {
+      adjMap.set(adj.variantId, adj);
+    });
+
+    setProducts((prev) =>
+      prev.map((prod) => {
+        if (prod.id !== productId) return prod;
+        return {
+          ...prod,
+          variants: prod.variants.map((v) => {
+            const adj = adjMap.get(v.id);
+            if (!adj) return v;
+            const finalQty = adj.newStock !== undefined
+              ? Math.max(0, Number(adj.newStock))
+              : Math.max(0, (v.stock || 0) + Number(adj.delta || 0));
+            totalPairsDelta += (finalQty - (v.stock || 0));
+            return { ...v, stock: finalQty };
+          }),
+        };
+      })
+    );
+
+    const sign = totalPairsDelta >= 0 ? `+${totalPairsDelta}` : `${totalPairsDelta}`;
+    setNotifications((prev) => [
+      {
+        id: `notif-bulk-adj-${Date.now()}`,
+        title: "Stock Adjusted (All Sizes)",
+        message: `${sign} pairs updated across sizes (${reason}${note ? `: ${note}` : ""}).`,
         time: "Just now",
         unread: true,
       },
@@ -504,6 +580,7 @@ export function StoreProvider({ children }) {
     updateProduct,
     deleteProduct,
     adjustStock,
+    bulkAdjustStock,
     refundSale,
     updateSettings,
     resetToDemoData,

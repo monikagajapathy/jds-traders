@@ -41,13 +41,25 @@ export default function ReportsView() {
 
     sales.forEach((s) => {
       if (s.status === "Refunded") return;
-      totalRevenue += s.total || 0;
-      totalDiscount += s.discount_amount || 0;
-      totalTax += s.tax_amount || 0;
+      const sTotal =
+        Number(s.total) > 0
+          ? Number(s.total)
+          : (s.items?.reduce(
+              (sum, it) =>
+                sum +
+                (Number(it.unit_price ?? it.unitPrice) || 0) *
+                  (Number(it.quantity) || 1),
+              0
+            ) || 0);
+      totalRevenue += sTotal;
+      totalDiscount += Number(s.discount_amount) || 0;
+      totalTax += Number(s.tax_amount) || 0;
 
       s.items?.forEach((it) => {
-        pairsSold += it.quantity || 1;
-        totalCost += (it.cost_price || it.unit_price * 0.55) * (it.quantity || 1);
+        pairsSold += Number(it.quantity) || 1;
+        totalCost +=
+          ((Number(it.cost_price) || (Number(it.unit_price ?? it.unitPrice) || 0) * 0.55)) *
+          (Number(it.quantity) || 1);
       });
     });
 

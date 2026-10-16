@@ -31,12 +31,24 @@ export default function DashboardView() {
     setIsReceiptOpen,
   } = useStore();
 
+  // Helper to ensure accurate non-zero total
+  const getSaleTotal = (s) =>
+    Number(s.total) > 0
+      ? Number(s.total)
+      : (s.items?.reduce(
+          (sum, it) =>
+            sum +
+            (Number(it.unit_price ?? it.unitPrice) || 0) *
+              (Number(it.quantity) || 1),
+          0
+        ) || 0);
+
   // Metrics Calculations
   const todayStr = new Date().toISOString().slice(0, 10);
   const todaySales = sales.filter(
     (s) => s.created_at?.slice(0, 10) === todayStr && s.status !== "Refunded"
   );
-  const todayRevenue = todaySales.reduce((sum, s) => sum + (s.total || 0), 0);
+  const todayRevenue = todaySales.reduce((sum, s) => sum + getSaleTotal(s), 0);
   const totalBilledCount = todaySales.length;
 
   // Inventory Totals
@@ -80,7 +92,7 @@ export default function DashboardView() {
         .filter(
           (s) => s.created_at?.slice(0, 10) === dateString && s.status !== "Refunded"
         )
-        .reduce((sum, s) => sum + (s.total || 0), 0);
+        .reduce((sum, s) => sum + getSaleTotal(s), 0);
 
       days.push({
         day: dayName,
@@ -346,7 +358,7 @@ export default function DashboardView() {
                       </span>
                     </td>
                     <td style={{ textAlign: "right", fontWeight: 700 }}>
-                      {formatINR(s.total)}
+                      {formatINR(getSaleTotal(s))}
                     </td>
                     <td style={{ textAlign: "center" }}>
                       <button
