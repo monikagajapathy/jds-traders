@@ -1,5 +1,24 @@
-import { useState } from "react";
-import { LayoutDashboard, ShoppingCart, Boxes, ReceiptText, ChartNoAxesCombined, Settings, Search, Bell, Wifi } from "lucide-react";
+import React, { useState } from "react";
+import {
+  LayoutDashboard,
+  ShoppingCart,
+  Boxes,
+  ReceiptText,
+  ChartNoAxesCombined,
+  Settings,
+  Bell,
+  Wifi,
+  Database,
+  CheckCircle2,
+} from "lucide-react";
+import { StoreProvider, useStore } from "./context/StoreContext.jsx";
+import BillingView from "./components/BillingView.jsx";
+import DashboardView from "./components/DashboardView.jsx";
+import InventoryView from "./components/InventoryView.jsx";
+import TransactionsView from "./components/TransactionsView.jsx";
+import ReportsView from "./components/ReportsView.jsx";
+import SettingsView from "./components/SettingsView.jsx";
+import ReceiptModal from "./components/ReceiptModal.jsx";
 import "./styles/app.css";
 
 const navigation = [
@@ -12,93 +31,182 @@ const navigation = [
 ];
 
 const moduleText = {
-  dashboard: ["Business overview", "Sales, stock and profit indicators will appear here once the database is connected."],
-  billing: ["Billing counter", "Search footwear, choose an in-stock size, add it to the cart, and complete payment."],
-  inventory: ["Products & inventory", "Manage product details, sizes, barcodes, purchase cost and available quantities."],
-  transactions: ["Sales & transactions", "Search completed invoices, review payment methods and reprint bills."],
-  reports: ["Reports & analytics", "View real sales trends, low-stock products, popular models and profit summaries."],
-  settings: ["Shop settings", "Configure shop details, tax rules, invoice layout and staff permissions."],
+  dashboard: [
+    "Business overview",
+    "Live indicators for retail footwear sales, active stock, and profitability.",
+  ],
+  billing: [
+    "Billing counter",
+    "Search footwear, tap an in-stock size, add to bill, and generate instant tax invoice.",
+  ],
+  inventory: [
+    "Products & inventory",
+    "Footwear models, sizes 6-10 stock counts, barcodes, purchase costs, and quick adjustments.",
+  ],
+  transactions: [
+    "Sales & transactions",
+    "Complete tax invoice records, digital & cash breakdowns, receipt reprinting and returns.",
+  ],
+  reports: [
+    "Reports & analytics",
+    "Footwear size velocity demand, daily gross margin, category sales and CSV exports.",
+  ],
+  settings: [
+    "Shop settings",
+    "Store identity, GST tax rules, invoice prefixes, and database management.",
+  ],
 };
 
-export default function App() {
-  const [active, setActive] = useState("billing");
-  const [search, setSearch] = useState("");
-  const selected = moduleText[active];
+function MainWorkspace() {
+  const {
+    activeTab,
+    setActiveTab,
+    notifications,
+    markAllNotificationsRead,
+    dbStatus,
+  } = useStore();
+
+  const [showNotifications, setShowNotifications] = useState(false);
+  const selected = moduleText[activeTab] || moduleText.billing;
+  const unreadCount = notifications.filter((n) => n.unread).length;
 
   return (
     <div className="app-shell">
+      {/* SIDEBAR */}
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-seal">JDS</div>
-          <div><strong>JDS Traders</strong><span>FOOTWEAR • SINCE 2014</span></div>
+          <div>
+            <strong>JDS Traders</strong>
+            <span>FOOTWEAR • SINCE 2014</span>
+          </div>
         </div>
+
         <div className="nav-caption">WORKSPACE</div>
         <nav>
           {navigation.map(({ id, label, icon: Icon }) => (
-            <button key={id} className={`nav-item ${active === id ? "active" : ""}`} onClick={() => setActive(id)}>
-              <Icon size={18} strokeWidth={1.8} /><span>{label}</span>
+            <button
+              key={id}
+              className={`nav-item ${activeTab === id ? "active" : ""}`}
+              onClick={() => setActiveTab(id)}
+            >
+              <Icon size={18} strokeWidth={1.8} />
+              <span>{label}</span>
             </button>
           ))}
         </nav>
+
         <div className="sidebar-footer">
-          <span className="online-dot" /> Application ready for Supabase setup
+          <span className="online-dot" />
+          <span>
+            {dbStatus.connected
+              ? "Live PostgreSQL connected"
+              : "Application ready for Supabase setup"}
+          </span>
         </div>
       </aside>
 
+      {/* MAIN CONTAINER */}
       <main className="main">
+        {/* TOPBAR */}
         <header className="topbar">
           <div>
             <div className="eyebrow">JDS TRADERS / WORKSPACE</div>
             <h1>{selected[0]}</h1>
           </div>
+
           <div className="top-actions">
-            <div className="connection"><Wifi size={15} /> Backend not connected</div>
-            <button className="icon-button" aria-label="Notifications"><Bell size={18} /></button>
-            <div className="avatar">JD</div>
+            {/* Connection Status Pill */}
+            <div
+              className="connection"
+              title={dbStatus.message}
+              style={{ cursor: "default" }}
+            >
+              <Wifi size={14} style={{ color: "#16a34a" }} />
+              <span>{dbStatus.mode}</span>
+            </div>
+
+            {/* Notifications Button */}
+            <div style={{ position: "relative" }}>
+              <button
+                className="icon-button"
+                aria-label="Notifications"
+                onClick={() => setShowNotifications(!showNotifications)}
+              >
+                <Bell size={18} />
+                {unreadCount > 0 && (
+                  <span className="notif-badge-pill">{unreadCount}</span>
+                )}
+              </button>
+
+              {/* Notifications Dropdown */}
+              {showNotifications && (
+                <div className="notifications-dropdown">
+                  <div className="notif-header">
+                    <strong>Store Notifications</strong>
+                    {unreadCount > 0 && (
+                      <button onClick={markAllNotificationsRead}>
+                        Mark all read
+                      </button>
+                    )}
+                  </div>
+                  <div className="notif-list">
+                    {notifications.length === 0 ? (
+                      <div
+                        style={{
+                          padding: "16px",
+                          textAlign: "center",
+                          color: "#94a3b8",
+                          fontSize: "11px",
+                        }}
+                      >
+                        No new notifications
+                      </div>
+                    ) : (
+                      notifications.map((n) => (
+                        <div
+                          key={n.id}
+                          className={`notif-item ${n.unread ? "unread" : ""}`}
+                        >
+                          <div className="notif-item-title">
+                            <span>{n.title}</span>
+                            <span>{n.time}</span>
+                          </div>
+                          <p>{n.message}</p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Profile Avatar */}
+            <div className="avatar" title="JDS Traders Staff">
+              JD
+            </div>
           </div>
         </header>
 
-        {active === "billing" ? (
-          <section className="billing-layout">
-            <div className="panel catalog-panel">
-              <div className="panel-heading">
-                <div><h2>Product catalogue</h2><p>Search by product, article code or barcode</p></div>
-                <span className="small-tag">LIVE STOCK AFTER CONNECTION</span>
-              </div>
-              <div className="search-row">
-                <Search size={18} />
-                <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search footwear, SKU or barcode..." />
-                <kbd>Enter</kbd>
-              </div>
-              <div className="empty-state">
-                <div className="empty-icon"><Boxes size={25} /></div>
-                <h3>Products will appear here</h3>
-                <p>{search ? `Search for “${search}” will run when Supabase is connected.` : "Connect your database to load products and in-stock sizes."}</p>
-              </div>
-            </div>
-
-            <div className="panel cart-panel">
-              <div className="panel-heading"><div><h2>Current bill</h2><p>Invoice created at checkout</p></div><span className="cart-count">0 items</span></div>
-              <div className="cart-empty"><ShoppingCart size={30} /><strong>Your cart is empty</strong><span>Select a product and size to begin.</span></div>
-              <div className="totals">
-                <div><span>Subtotal</span><strong>₹0.00</strong></div>
-                <div><span>Discount</span><strong>₹0.00</strong></div>
-                <div><span>GST</span><strong>₹0.00</strong></div>
-                <div className="grand-total"><span>Grand total</span><strong>₹0.00</strong></div>
-                <button className="checkout-button" disabled>Checkout · ₹0.00</button>
-                <p className="checkout-note">Checkout enables after products and database are connected.</p>
-              </div>
-            </div>
-          </section>
-        ) : (
-          <section className="module-panel panel">
-            <div className="module-icon">{navigation.find((item) => item.id === active)?.icon({ size: 24 })}</div>
-            <h2>{selected[0]}</h2>
-            <p>{selected[1]}</p>
-            <div className="module-note">This module will use live PostgreSQL data. No sample financial values are shown.</div>
-          </section>
-        )}
+        {/* ACTIVE DASHBOARD VIEW */}
+        {activeTab === "dashboard" && <DashboardView />}
+        {activeTab === "billing" && <BillingView />}
+        {activeTab === "inventory" && <InventoryView />}
+        {activeTab === "transactions" && <TransactionsView />}
+        {activeTab === "reports" && <ReportsView />}
+        {activeTab === "settings" && <SettingsView />}
       </main>
+
+      {/* Global Invoice / Receipt Print Modal */}
+      <ReceiptModal />
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <StoreProvider>
+      <MainWorkspace />
+    </StoreProvider>
   );
 }
