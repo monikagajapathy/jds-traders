@@ -26,6 +26,7 @@ export default function InventoryView() {
     deleteProduct,
     adjustStock,
     bulkAdjustStock,
+    addVariantToProduct,
     targetInventoryFilter,
     setTargetInventoryFilter,
     isAdmin,
@@ -74,6 +75,34 @@ export default function InventoryView() {
   const [multiSizeAdjustments, setMultiSizeAdjustments] = useState([]);
   const [adjustReason, setAdjustReason] = useState("Restock Delivery");
   const [adjustNote, setAdjustNote] = useState("");
+
+  // Add new size state
+  const [isAddSizeOpen, setIsAddSizeOpen] = useState(false);
+  const [sizeTargetProduct, setSizeTargetProduct] = useState(null);
+  const [newSizeForm, setNewSizeForm] = useState({
+    size: "",
+    color: "",
+    cost_price: 600,
+    selling_price: 1199,
+    stock: 6,
+    barcode: "",
+    reorder_level: 3,
+  });
+
+  const handleOpenAddSize = (prod) => {
+    setSizeTargetProduct(prod);
+    const firstVar = prod.variants[0];
+    setNewSizeForm({
+      size: "",
+      color: firstVar?.color || "Standard",
+      cost_price: firstVar?.cost_price || 600,
+      selling_price: firstVar?.selling_price || 1199,
+      stock: 6,
+      barcode: `890${Math.floor(100000000 + Math.random() * 900000000)}`,
+      reorder_level: 3,
+    });
+    setIsAddSizeOpen(true);
+  };
 
   // New product form state
   const [newProd, setNewProd] = useState({
@@ -461,6 +490,14 @@ export default function InventoryView() {
                               </button>
                             );
                           })}
+                          <button
+                            type="button"
+                            className="btn-add-size-pill"
+                            onClick={() => handleOpenAddSize(prod)}
+                            title={`Add a new size variant to ${prod.name}`}
+                          >
+                            <Plus size={11} /> Size
+                          </button>
                         </div>
                       </td>
 
@@ -491,6 +528,14 @@ export default function InventoryView() {
 
                       <td style={{ textAlign: "center" }}>
                         <div style={{ display: "flex", gap: "6px", justifyContent: "center" }}>
+                          <button
+                            className="btn-tiny"
+                            style={{ color: "#7c632e", borderColor: "#c5a15c", background: "#fbf8f2" }}
+                            onClick={() => handleOpenAddSize(prod)}
+                            title="Add New Size Variant to this Product"
+                          >
+                            + Size
+                          </button>
                           <button
                             className="btn-tiny"
                             onClick={() => handleOpenAdjust(prod)}
@@ -988,6 +1033,172 @@ export default function InventoryView() {
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ADD NEW SIZE VARIANT MODAL */}
+      {isAddSizeOpen && sizeTargetProduct && (
+        <div className="modal-backdrop" onClick={() => setIsAddSizeOpen(false)}>
+          <div className="modal-content" style={{ maxWidth: "520px" }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <h3>Add New Size to Footwear</h3>
+                <p>
+                  Model: <strong>{sizeTargetProduct.name}</strong> ({sizeTargetProduct.article_no})
+                </p>
+              </div>
+              <button className="btn-close" onClick={() => setIsAddSizeOpen(false)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const res = addVariantToProduct(sizeTargetProduct.id, newSizeForm);
+                if (res.success) {
+                  setIsAddSizeOpen(false);
+                } else {
+                  alert(res.message);
+                }
+              }}
+            >
+              <div style={{ padding: "4px 0" }}>
+                {/* Quick Size Preset Selector */}
+                <div className="form-field">
+                  <label>Select Size (UK / Indian Standard) or Enter Custom</label>
+                  <div className="size-preset-chips" style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "8px" }}>
+                    {["4", "5", "6", "7", "8", "9", "10", "11", "12", "13"].map((sz) => {
+                      const alreadyHas = sizeTargetProduct.variants.some(
+                        (v) => String(v.size) === sz
+                      );
+                      const isChosen = newSizeForm.size === sz;
+                      return (
+                        <button
+                          key={sz}
+                          type="button"
+                          className={`btn-chip ${isChosen ? "active" : ""}`}
+                          disabled={alreadyHas}
+                          style={{
+                            minWidth: "36px",
+                            opacity: alreadyHas ? 0.45 : 1,
+                            borderColor: isChosen ? "var(--gold)" : "#cbd5e1",
+                            background: isChosen ? "var(--navy)" : alreadyHas ? "#f1f5f9" : "#fff",
+                            color: isChosen ? "#fff" : alreadyHas ? "#94a3b8" : "#1e293b",
+                            fontWeight: isChosen ? 700 : 500,
+                          }}
+                          onClick={() => setNewSizeForm({ ...newSizeForm, size: sz })}
+                        >
+                          {sz} {alreadyHas ? "✓" : ""}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. 5, 11, 12 or 7.5"
+                    value={newSizeForm.size}
+                    onChange={(e) => setNewSizeForm({ ...newSizeForm, size: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-grid-2">
+                  <div className="form-field">
+                    <label>Color / Finish</label>
+                    <input
+                      type="text"
+                      required
+                      value={newSizeForm.color}
+                      onChange={(e) => setNewSizeForm({ ...newSizeForm, color: e.target.value })}
+                    />
+                  </div>
+                  <div className="form-field">
+                    <label>Opening Stock (Pairs)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      required
+                      value={newSizeForm.stock}
+                      onChange={(e) => setNewSizeForm({ ...newSizeForm, stock: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-grid-2">
+                  <div className="form-field">
+                    <label>Cost Price (₹)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      required
+                      value={newSizeForm.cost_price}
+                      onChange={(e) => setNewSizeForm({ ...newSizeForm, cost_price: e.target.value })}
+                    />
+                  </div>
+                  <div className="form-field">
+                    <label>Selling Price (₹)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      required
+                      value={newSizeForm.selling_price}
+                      onChange={(e) => setNewSizeForm({ ...newSizeForm, selling_price: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-grid-2">
+                  <div className="form-field">
+                    <label>Barcode Number (EAN / UPC)</label>
+                    <div style={{ display: "flex", gap: "6px" }}>
+                      <input
+                        type="text"
+                        placeholder="Scan or auto-generate"
+                        value={newSizeForm.barcode}
+                        onChange={(e) => setNewSizeForm({ ...newSizeForm, barcode: e.target.value })}
+                      />
+                      <button
+                        type="button"
+                        className="btn-tiny"
+                        style={{ whiteSpace: "nowrap" }}
+                        onClick={() =>
+                          setNewSizeForm({
+                            ...newSizeForm,
+                            barcode: `890${Math.floor(100000000 + Math.random() * 900000000)}`,
+                          })
+                        }
+                      >
+                        Auto
+                      </button>
+                    </div>
+                  </div>
+                  <div className="form-field">
+                    <label>Reorder Alert Level</label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={newSizeForm.reorder_level}
+                      onChange={(e) => setNewSizeForm({ ...newSizeForm, reorder_level: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setIsAddSizeOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="btn-primary">
+                  <Plus size={15} /> Save New Size Variant
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

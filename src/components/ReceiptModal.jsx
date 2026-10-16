@@ -4,7 +4,7 @@ import { useStore } from "../context/StoreContext.jsx";
 import { formatINR } from "../utils/calculations.js";
 
 export default function ReceiptModal() {
-  const { recentInvoice, isReceiptOpen, setIsReceiptOpen, settings } = useStore();
+  const { recentInvoice, isReceiptOpen, setIsReceiptOpen, settings, isAdmin } = useStore();
 
   if (!isReceiptOpen || !recentInvoice) return null;
 
@@ -98,8 +98,17 @@ export default function ReceiptModal() {
               </span>
             </div>
             <div>
-              <span className="meta-label">BILLED BY:</span>
-              <strong style={{ color: "#7c632e" }}>{recentInvoice.billed_by || "JDS Cashier"}</strong>
+              {isAdmin ? (
+                <>
+                  <span className="meta-label">BILLED BY (AUDIT):</span>
+                  <strong style={{ color: "#7c632e" }}>{recentInvoice.billed_by || "Store Cashier"}</strong>
+                </>
+              ) : (
+                <>
+                  <span className="meta-label">REGISTER:</span>
+                  <strong style={{ color: "#7c632e" }}>Main POS Counter #1</strong>
+                </>
+              )}
             </div>
             <div style={{ textAlign: "right" }}>
               <span className="meta-label">STATUS:</span>

@@ -21,7 +21,7 @@ const STORAGE_KEYS = {
 
 const initialUsersList = [
   { id: "usr-moni", name: "Moni", role: "Admin", pin: "1234", phone: "+91 98401 23456", is_active: true },
-  { id: "usr-raj", name: "Raj", role: "Admin", pin: "2345", phone: "+91 98401 34567", is_active: true },
+  { id: "usr-raj", name: "Raj", role: "Staff", pin: "2345", phone: "+91 98401 34567", is_active: true },
   { id: "usr-aakif", name: "Aakif", role: "Cashier", pin: "1111", phone: "+91 98401 45678", is_active: true },
   { id: "usr-nishok", name: "Nishok", role: "Staff", pin: "2222", phone: "+91 98401 56789", is_active: true },
 ];
@@ -81,7 +81,7 @@ export function StoreProvider({ children }) {
     message: "Connected to PostgreSQL database",
   });
 
-  // Users state with self-healing to Moni, Raj, Aakif, Nishok
+  // Users state with self-healing to Moni (Admin), Raj (Staff), Aakif (Cashier), Nishok (Staff)
   const [users, setUsers] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.USERS);
@@ -90,7 +90,15 @@ export function StoreProvider({ children }) {
         const hasRequestedUsers = parsed.some((u) =>
           ["moni", "raj", "aakif", "nishok"].includes(u.name?.toLowerCase())
         );
-        if (hasRequestedUsers && parsed.length >= 4) return parsed;
+        if (hasRequestedUsers && parsed.length >= 4) {
+          // Strictly ensure Raj is Staff (not Admin)
+          return parsed.map((u) => {
+            if (u.name.toLowerCase() === "raj") {
+              return { ...u, role: "Staff" };
+            }
+            return u;
+          });
+        }
       }
       return initialUsersList;
     } catch {
@@ -104,6 +112,9 @@ export function StoreProvider({ children }) {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (["moni", "raj", "aakif", "nishok"].includes(parsed.name?.toLowerCase())) {
+          if (parsed.name.toLowerCase() === "raj") {
+            return { ...parsed, role: "Staff" };
+          }
           return parsed;
         }
       }
@@ -112,6 +123,45 @@ export function StoreProvider({ children }) {
       return initialUsersList[0];
     }
   });
+
+  // Login authentication session state
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    try {
+      const savedAuth = sessionStorage.getItem("jds_pos_auth_v1");
+      return savedAuth === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  const login = (userId, pin) => {
+    const user = users.find((u) => u.id === userId);
+    if (!user) return { success: false, message: "User not found" };
+
+    if (user.pin && String(user.pin).trim() !== String(pin).trim()) {
+      return { success: false, message: "Incorrect security PIN. Please try again." };
+    }
+
+    const updatedUser = user.name.toLowerCase() === "raj" ? { ...user, role: "Staff" } : user;
+    setCurrentUser(updatedUser);
+    setIsAuthenticated(true);
+    try {
+      sessionStorage.setItem("jds_pos_auth_v1", "true");
+      localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(updatedUser));
+    } catch (e) {
+      console.warn("Storage warning:", e);
+    }
+    return { success: true, user: updatedUser };
+  };
+
+  const logout = () => {
+    setIsAuthenticated(false);
+    try {
+      sessionStorage.removeItem("jds_pos_auth_v1");
+    } catch (e) {
+      console.warn("Storage warning:", e);
+    }
+  };
 
   // Stock Audit Logs state (for admin accountability)
   const [stockLogs, setStockLogs] = useState(() => {
@@ -1079,22 +1129,30 @@ export function StoreProvider({ children }) {
     setProducts((prev) => prev.filter((prod) => prod.id !== productId));
   };
 
-  // User Management Actions (for Admin & Cashiers)
+  const isAdmin = currentUser?.role === "Admin";
+
+  // User Management Actions (Admin alone can edit and delete users)
   const switchUser = (userId) => {
     const target = users.find((u) => u.id === userId);
     if (target) {
-      setCurrentUser(target);
-      localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(target));
-      return target;
+      const sanitized = target.name.toLowerCase() === "raj" ? { ...target, role: "Staff" } : target;
+      setCurrentUser(sanitized);
+      localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(sanitized));
+      return sanitized;
     }
     return null;
   };
 
   const addUser = (userData) => {
+    if (!isAdmin) {
+      alert("Permission Denied: Only Administrator can add new users.");
+      return null;
+    }
+    const role = userData.name.toLowerCase() === "raj" ? "Staff" : (userData.role || "Cashier");
     const newUser = {
       id: `usr-${Date.now()}`,
       name: userData.name.trim(),
-      role: userData.role || "Cashier",
+      role: role,
       pin: userData.pin || "1234",
       phone: userData.phone || "",
       is_active: true,
@@ -1108,18 +1166,31 @@ export function StoreProvider({ children }) {
   };
 
   const updateUser = (userId, updatedData) => {
+    if (!isAdmin) {
+      alert("Permission Denied: Only Administrator can edit user accounts.");
+      return false;
+    }
+    const sanitized = { ...updatedData };
+    if (sanitized.name?.toLowerCase() === "raj") {
+      sanitized.role = "Staff"; // Ensure Raj is strictly Staff
+    }
     setUsers((prev) =>
-      prev.map((u) => (u.id === userId ? { ...u, ...updatedData } : u))
+      prev.map((u) => (u.id === userId ? { ...u, ...sanitized } : u))
     );
     if (currentUser?.id === userId) {
-      setCurrentUser((prev) => ({ ...prev, ...updatedData }));
+      setCurrentUser((prev) => ({ ...prev, ...sanitized }));
     }
     if (supabase) {
-      supabase.from("store_users").update(updatedData).eq("id", userId).then(() => {});
+      supabase.from("store_users").update(sanitized).eq("id", userId).then(() => {});
     }
+    return true;
   };
 
   const deleteUser = (userId) => {
+    if (!isAdmin) {
+      alert("Permission Denied: Only Administrator can delete user accounts.");
+      return false;
+    }
     if (users.length <= 1) {
       alert("At least one user account must remain active.");
       return false;
@@ -1135,7 +1206,114 @@ export function StoreProvider({ children }) {
     return true;
   };
 
-  const isAdmin = currentUser?.role === "Admin";
+  // Feature: Add new size variant to any footwear product
+  const addVariantToProduct = (productId, variantData) => {
+    const prod = products.find((p) => p.id === productId);
+    if (!prod) return { success: false, message: "Footwear model not found." };
+
+    const sizeStr = String(variantData.size || "").trim();
+    if (!sizeStr) return { success: false, message: "Size number / name is required." };
+
+    const exists = prod.variants.some(
+      (v) => String(v.size).toLowerCase() === sizeStr.toLowerCase()
+    );
+    if (exists) {
+      return {
+        success: false,
+        message: `Size ${sizeStr} already exists for ${prod.name}. You can adjust its stock directly.`,
+      };
+    }
+
+    const varId = `var-${prod.id.replace("prod-", "")}-${sizeStr.replace(/[^a-zA-Z0-9]/g, "")}-${Date.now().toString().slice(-4)}`;
+    const barcode = variantData.barcode?.trim() || `890${Math.floor(100000000 + Math.random() * 900000000)}`;
+    const sku = variantData.sku?.trim() || `JDS-${prod.article_no}-${sizeStr}`;
+    const costPrice = Number(variantData.cost_price) || prod.variants[0]?.cost_price || 500;
+    const sellingPrice = Number(variantData.selling_price) || prod.variants[0]?.selling_price || 999;
+    const initialStock = Number(variantData.stock) || 0;
+    const reorderLevel = Number(variantData.reorder_level) || 3;
+
+    const newVariant = {
+      id: varId,
+      size: sizeStr,
+      color: variantData.color?.trim() || prod.variants[0]?.color || "Standard",
+      cost_price: costPrice,
+      selling_price: sellingPrice,
+      sku: sku,
+      barcode: barcode,
+      stock: initialStock,
+      reorder_level: reorderLevel,
+    };
+
+    setProducts((prev) =>
+      prev.map((p) => {
+        if (p.id !== productId) return p;
+        const updatedVariants = [...p.variants, newVariant].sort((a, b) => {
+          const numA = parseFloat(a.size);
+          const numB = parseFloat(b.size);
+          if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+          return String(a.size).localeCompare(String(b.size));
+        });
+        return { ...p, variants: updatedVariants };
+      })
+    );
+
+    // Stock audit trail for admin accountability
+    const addLog = {
+      id: `log-size-${Date.now()}`,
+      product_id: prod.id,
+      product_name: prod.name,
+      article_no: prod.article_no,
+      size: sizeStr,
+      delta: initialStock,
+      reason: "New Size Variant Added",
+      note: `Added size ${sizeStr} (Barcode: ${barcode}) with initial stock ${initialStock} pairs`,
+      adjusted_by: currentUser?.name || "JDS Staff",
+      created_at: new Date().toISOString(),
+    };
+    setStockLogs((prev) => [addLog, ...prev]);
+
+    setNotifications((prev) => [
+      {
+        id: `notif-size-${Date.now()}`,
+        title: "New Size Added",
+        message: `Added size ${sizeStr} to ${prod.name} with barcode ${barcode}.`,
+        time: "Just now",
+        unread: true,
+        type: "stock",
+        targetTab: "inventory",
+        productId: prod.id,
+        productName: prod.name,
+      },
+      ...prev,
+    ]);
+
+    // Async sync to Supabase
+    if (supabase) {
+      (async () => {
+        try {
+          await supabase.from("product_variants").insert({
+            id: newVariant.id,
+            product_id: prod.id,
+            size: newVariant.size,
+            color: newVariant.color,
+            sku: newVariant.sku,
+            barcode: newVariant.barcode,
+            selling_price: newVariant.selling_price,
+            cost_price: newVariant.cost_price,
+          });
+          await supabase.from("inventory").insert({
+            variant_id: newVariant.id,
+            quantity: newVariant.stock,
+            reorder_level: newVariant.reorder_level,
+          });
+        } catch (err) {
+          console.warn("[Supabase Sync] Add variant notice:", err.message);
+        }
+      })();
+    }
+
+    return { success: true, variant: newVariant };
+  };
 
   // Refund / Return Sale
   const refundSale = (saleId) => {
@@ -1381,6 +1559,10 @@ export function StoreProvider({ children }) {
     updateUser,
     deleteUser,
     isAdmin,
+    isAuthenticated,
+    login,
+    logout,
+    addVariantToProduct,
     stockLogs,
     cart,
     addToCart,

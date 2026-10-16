@@ -13,6 +13,8 @@ import {
   Users,
   ShieldCheck,
   ChevronDown,
+  LogOut,
+  Lock,
 } from "lucide-react";
 import { StoreProvider, useStore } from "./context/StoreContext.jsx";
 import BillingView from "./components/BillingView.jsx";
@@ -22,6 +24,7 @@ import TransactionsView from "./components/TransactionsView.jsx";
 import ReportsView from "./components/ReportsView.jsx";
 import SettingsView from "./components/SettingsView.jsx";
 import ReceiptModal from "./components/ReceiptModal.jsx";
+import LoginView from "./components/LoginView.jsx";
 import "./styles/app.css";
 
 const navigation = [
@@ -56,7 +59,7 @@ const moduleText = {
   ],
   settings: [
     "Shop settings",
-    "Store identity, GST tax rules, invoice prefixes, and database management.",
+    "Store identity, GST tax rules, invoice prefixes, and staff user management.",
   ],
 };
 
@@ -99,6 +102,8 @@ function MainWorkspace() {
     currentUser,
     switchUser,
     isAdmin,
+    isAuthenticated,
+    logout,
   } = useStore();
 
   const [showNotifications, setShowNotifications] = useState(false);
@@ -106,9 +111,14 @@ function MainWorkspace() {
   const selected = moduleText[activeTab] || moduleText.billing;
   const unreadCount = notifications.filter((n) => n.unread).length;
 
+  // Show Login Screen if not authenticated
+  if (!isAuthenticated) {
+    return <LoginView />;
+  }
+
   return (
     <div className="app-shell">
-      {/* SIDEBAR */}
+      {/* SIDEBAR (Strictly pinned on left; does not scroll when screen scrolls) */}
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-seal-logo-wrap">
@@ -121,7 +131,7 @@ function MainWorkspace() {
         </div>
 
         <div className="nav-caption">WORKSPACE</div>
-        <nav>
+        <nav className="sidebar-nav-scroll">
           {navigation.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
@@ -134,17 +144,131 @@ function MainWorkspace() {
           ))}
         </nav>
 
-        <div className="sidebar-footer">
-          <span className={`online-dot ${dbStatus.connected ? "connected" : ""}`} />
-          <span>
-            {dbStatus.connected
-              ? "Live PostgreSQL connected"
-              : "Application ready for Supabase setup"}
-          </span>
+        {/* CURRENT USER DETAILS AT LEFT BOTTOM CORNER */}
+        <div className="sidebar-bottom-user-section">
+          <div className="sidebar-current-user-card">
+            <div className={`sidebar-user-avatar ${isAdmin ? "admin" : ""}`}>
+              {currentUser?.name
+                ? currentUser.name
+                    .split(" ")
+                    .map((n) => n[0])
+                    .join("")
+                    .slice(0, 2)
+                    .toUpperCase()
+                : "JD"}
+            </div>
+            <div className="sidebar-user-details">
+              <strong className="sidebar-user-name" title={currentUser?.name}>
+                {currentUser?.name || "JDS Staff"}
+              </strong>
+              <span className={`sidebar-role-badge ${currentUser?.role?.toLowerCase() || "cashier"}`}>
+                {isAdmin ? "★ Admin" : currentUser?.role || "Staff"}
+              </span>
+            </div>
+            <div className="sidebar-user-controls">
+              <button
+                type="button"
+                className="btn-sidebar-user-action"
+                title="Switch Counter User"
+                onClick={() => setShowUserMenu(!showUserMenu)}
+              >
+                <Users size={13} />
+              </button>
+              <button
+                type="button"
+                className="btn-sidebar-user-action logout"
+                title="Lock Register / Logout"
+                onClick={logout}
+              >
+                <LogOut size={13} />
+              </button>
+            </div>
+          </div>
+
+          {/* User Switcher Dropdown Popover */}
+          {showUserMenu && (
+            <div className="sidebar-user-dropdown-popover">
+              <div className="user-dropdown-header">
+                <div>
+                  <strong>Switch Counter User</strong>
+                  <span className="sub-hint">Actions will be logged under this user</span>
+                </div>
+              </div>
+
+              <div className="user-list">
+                {users.map((u) => {
+                  const isSelected = u.id === currentUser?.id;
+                  const initials = u.name
+                    .split(" ")
+                    .map((n) => n[0])
+                    .join("")
+                    .slice(0, 2)
+                    .toUpperCase();
+                  const isAdminUser = u.role === "Admin";
+
+                  return (
+                    <div
+                      key={u.id}
+                      className={`user-dropdown-item ${isSelected ? "selected" : ""}`}
+                      onClick={() => {
+                        switchUser(u.id);
+                        setShowUserMenu(false);
+                      }}
+                    >
+                      <div className={`user-item-avatar ${isAdminUser ? "admin" : ""}`}>
+                        {initials}
+                      </div>
+                      <div className="user-item-meta">
+                        <strong>{u.name}</strong>
+                        <span className="sub-text">
+                          {isAdminUser ? "★ Admin" : u.role || "Staff"}
+                        </span>
+                      </div>
+                      {isSelected && (
+                        <CheckCircle2 size={16} style={{ color: "#16a34a", marginLeft: "auto" }} />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="user-dropdown-footer">
+                {isAdmin && (
+                  <button
+                    className="btn-dropdown-manage"
+                    onClick={() => {
+                      setShowUserMenu(false);
+                      setActiveTab("settings");
+                    }}
+                  >
+                    <Users size={14} /> Manage Staff & Users
+                  </button>
+                )}
+                <button
+                  className="btn-dropdown-manage danger"
+                  onClick={() => {
+                    setShowUserMenu(false);
+                    logout();
+                  }}
+                >
+                  <LogOut size={14} /> Lock & Sign Out
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="sidebar-footer">
+            <span className={`online-dot ${dbStatus.connected ? "connected" : ""}`} />
+            <span>
+              {dbStatus.connected
+                ? "Live PostgreSQL online"
+                : "Local database active"}
+            </span>
+          </div>
         </div>
       </aside>
 
-      {/* MAIN CONTAINER */}
+      {/* MAIN CONTAINER (Smooth independent scroll; sidebar remains strictly stationary) */}
       <main className="main">
         {/* Subtle circular logo watermark across the software */}
         <div className="software-watermark" aria-hidden="true">
@@ -245,94 +369,15 @@ function MainWorkspace() {
               )}
             </div>
 
-            {/* User Switcher Pill & Dropdown */}
-            <div style={{ position: "relative" }}>
-              <button
-                className={`user-switcher-pill ${isAdmin ? "is-admin" : ""}`}
-                onClick={() => setShowUserMenu(!showUserMenu)}
-                title="Click to switch current active cashier / admin"
-                aria-label="User Switcher"
-              >
-                <div className="avatar-chip">
-                  {currentUser?.name
-                    ? currentUser.name
-                        .split(" ")
-                        .map((n) => n[0])
-                        .join("")
-                        .slice(0, 2)
-                        .toUpperCase()
-                    : "JD"}
-                </div>
-                <div className="user-info-text">
-                  <span className="user-name">{currentUser?.name || "JDS Staff"}</span>
-                  <span className={`user-role-badge ${currentUser?.role?.toLowerCase() || "cashier"}`}>
-                    {currentUser?.role || "Cashier"}
-                  </span>
-                </div>
-                <ChevronDown size={14} style={{ color: "#8a94a5", marginLeft: "2px" }} />
-              </button>
-
-              {showUserMenu && (
-                <div className="user-dropdown-menu">
-                  <div className="user-dropdown-header">
-                    <div>
-                      <strong>Switch Counter User</strong>
-                      <span className="sub-hint">Actions will be logged under this user</span>
-                    </div>
-                  </div>
-
-                  <div className="user-list">
-                    {users.map((u) => {
-                      const isSelected = u.id === currentUser?.id;
-                      const initials = u.name
-                        .split(" ")
-                        .map((n) => n[0])
-                        .join("")
-                        .slice(0, 2)
-                        .toUpperCase();
-
-                      return (
-                        <div
-                          key={u.id}
-                          className={`user-dropdown-item ${isSelected ? "selected" : ""}`}
-                          onClick={() => {
-                            switchUser(u.id);
-                            setShowUserMenu(false);
-                          }}
-                        >
-                          <div className="user-item-avatar">{initials}</div>
-                          <div className="user-item-meta">
-                            <strong>{u.name}</strong>
-                            <span className="sub-text">PIN: •••• • Role: {u.role}</span>
-                          </div>
-                          {isSelected && (
-                            <CheckCircle2 size={16} style={{ color: "#16a34a", marginLeft: "auto" }} />
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  <div className="user-dropdown-footer">
-                    {isAdmin && (
-                      <div className="admin-audit-notice">
-                        <ShieldCheck size={13} style={{ color: "#c5a15c" }} />
-                        <span>Admin View: Full Staff Audit Logs Active</span>
-                      </div>
-                    )}
-                    <button
-                      className="btn-dropdown-manage"
-                      onClick={() => {
-                        setShowUserMenu(false);
-                        setActiveTab("settings");
-                      }}
-                    >
-                      <Users size={14} /> Manage Staff & Users
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+            {/* Lock Register / Sign Out Button in Topbar */}
+            <button
+              className="icon-button"
+              title="Lock Counter Register"
+              onClick={logout}
+              aria-label="Lock Register"
+            >
+              <LogOut size={16} />
+            </button>
           </div>
         </header>
 

@@ -12,6 +12,7 @@ import {
   Users,
   UserPlus,
   Trash2,
+  Edit3,
   Key,
   Shield,
   UserCheck,
@@ -40,9 +41,17 @@ export default function SettingsView() {
 
   // User management state
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
+  const [isEditUserOpen, setIsEditUserOpen] = useState(false);
   const [newUser, setNewUser] = useState({
     name: "",
     role: "Cashier",
+    pin: "1234",
+    phone: "",
+  });
+  const [editUserForm, setEditUserForm] = useState({
+    id: "",
+    name: "",
+    role: "Staff",
     pin: "1234",
     phone: "",
   });
@@ -314,24 +323,47 @@ export default function SettingsView() {
                               Active
                             </span>
                           </td>
-                          {isAdmin && (
+                          {isAdmin ? (
                             <td style={{ textAlign: "center" }}>
-                              {users.length > 1 && u.role !== "Admin" ? (
+                              <div style={{ display: "flex", gap: "6px", justifyContent: "center" }}>
                                 <button
                                   type="button"
-                                  className="btn-tiny-danger"
-                                  title="Delete Staff Member"
+                                  className="btn-tiny"
+                                  title="Edit User Details"
                                   onClick={() => {
-                                    if (confirm(`Remove user ${u.name}?`)) {
-                                      deleteUser(u.id);
-                                    }
+                                    setEditUserForm({
+                                      id: u.id,
+                                      name: u.name,
+                                      role: u.name.toLowerCase() === "raj" ? "Staff" : u.role,
+                                      pin: u.pin || "1234",
+                                      phone: u.phone || "",
+                                    });
+                                    setIsEditUserOpen(true);
                                   }}
                                 >
-                                  <Trash2 size={12} />
+                                  <Edit3 size={11} /> Edit
                                 </button>
-                              ) : (
-                                <span style={{ fontSize: "10px", color: "#94a3b8" }}>Primary</span>
-                              )}
+                                {users.length > 1 && u.name.toLowerCase() !== "moni" ? (
+                                  <button
+                                    type="button"
+                                    className="btn-tiny-danger"
+                                    title="Delete User"
+                                    onClick={() => {
+                                      if (confirm(`Remove user ${u.name}?`)) {
+                                        deleteUser(u.id);
+                                      }
+                                    }}
+                                  >
+                                    <Trash2 size={11} />
+                                  </button>
+                                ) : (
+                                  <span style={{ fontSize: "10px", color: "#94a3b8", alignSelf: "center" }}>Admin</span>
+                                )}
+                              </div>
+                            </td>
+                          ) : (
+                            <td style={{ textAlign: "center", color: "#94a3b8", fontSize: "10px" }}>
+                              Admin Only
                             </td>
                           )}
                         </tr>
@@ -559,6 +591,101 @@ export default function SettingsView() {
                 </button>
                 <button type="submit" className="btn-primary">
                   <Check size={16} /> Save Staff Member
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT USER DETAILS MODAL (ADMIN ONLY) */}
+      {isEditUserOpen && (
+        <div className="modal-backdrop" onClick={() => setIsEditUserOpen(false)}>
+          <div className="modal-content" style={{ maxWidth: "460px" }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <h3>Edit User Details</h3>
+                <p>Modify staff credentials, assigned role, or PIN</p>
+              </div>
+              <button className="btn-close" onClick={() => setIsEditUserOpen(false)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                updateUser(editUserForm.id, editUserForm);
+                setIsEditUserOpen(false);
+                setSavedAlert(true);
+                setTimeout(() => setSavedAlert(false), 3000);
+              }}
+            >
+              <div className="modal-body" style={{ padding: "16px 20px" }}>
+                <div className="form-field">
+                  <label>Staff Full Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editUserForm.name}
+                    onChange={(e) => setEditUserForm({ ...editUserForm, name: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-grid-2">
+                  <div className="form-field">
+                    <label>Role</label>
+                    <select
+                      value={editUserForm.role}
+                      disabled={editUserForm.name?.toLowerCase() === "raj"}
+                      onChange={(e) => setEditUserForm({ ...editUserForm, role: e.target.value })}
+                    >
+                      <option value="Cashier">Cashier</option>
+                      <option value="Staff">Staff</option>
+                      {editUserForm.name?.toLowerCase() !== "raj" && (
+                        <option value="Admin">Admin</option>
+                      )}
+                    </select>
+                    {editUserForm.name?.toLowerCase() === "raj" && (
+                      <span className="sub-hint" style={{ fontSize: "9px", color: "#64748b" }}>
+                        Raj is configured as Staff / Cashier
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="form-field">
+                    <label>Security PIN (4 digits)</label>
+                    <input
+                      type="text"
+                      maxLength={6}
+                      required
+                      value={editUserForm.pin}
+                      onChange={(e) => setEditUserForm({ ...editUserForm, pin: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-field">
+                  <label>Mobile Number (optional)</label>
+                  <input
+                    type="tel"
+                    placeholder="+91 98400 00000"
+                    value={editUserForm.phone}
+                    onChange={(e) => setEditUserForm({ ...editUserForm, phone: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setIsEditUserOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="btn-primary">
+                  <Check size={16} /> Save Changes
                 </button>
               </div>
             </form>
