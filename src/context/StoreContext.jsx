@@ -20,32 +20,52 @@ const STORAGE_KEYS = {
 };
 
 const initialUsersList = [
-  { id: "usr-admin-1", name: "JDS Admin", role: "Admin", pin: "1234", phone: "+91 98401 23456", is_active: true },
-  { id: "usr-cashier-1", name: "Karthik (Cashier 1)", role: "Cashier", pin: "1111", phone: "+91 98401 11111", is_active: true },
-  { id: "usr-cashier-2", name: "Priya (Counter 2)", role: "Cashier", pin: "2222", phone: "+91 98401 22222", is_active: true },
-  { id: "usr-staff-1", name: "Anand (Stock Incharge)", role: "Staff", pin: "3333", phone: "+91 98401 33333", is_active: true },
+  { id: "usr-moni", name: "Moni", role: "Admin", pin: "1234", phone: "+91 98401 23456", is_active: true },
+  { id: "usr-raj", name: "Raj", role: "Admin", pin: "2345", phone: "+91 98401 34567", is_active: true },
+  { id: "usr-aakif", name: "Aakif", role: "Cashier", pin: "1111", phone: "+91 98401 45678", is_active: true },
+  { id: "usr-nishok", name: "Nishok", role: "Staff", pin: "2222", phone: "+91 98401 56789", is_active: true },
 ];
 
 const initialStockLogs = [
   {
     id: "log-seed-1",
-    product_name: "Bata Formal Oxford",
-    article_no: "OX-701",
+    product_name: "Classic Derby Oxford Leather Shoes",
+    article_no: "ART-101",
     delta: 12,
     reason: "Restock Delivery",
-    note: "Initial warehouse intake",
-    adjusted_by: "JDS Admin",
+    note: "Initial warehouse intake verified",
+    adjusted_by: "Moni",
     created_at: new Date(Date.now() - 86400000 * 2).toISOString(),
   },
   {
     id: "log-seed-2",
-    product_name: "Woodland Leather Trekker",
-    article_no: "WL-402",
+    product_name: "Rugged Adventure Nubuck Boots",
+    article_no: "ART-102",
     delta: 6,
     reason: "Restock Delivery",
-    note: "Supplier shipment #221",
-    adjusted_by: "Anand (Stock Incharge)",
+    note: "Supplier shipment #221 verified",
+    adjusted_by: "Nishok",
     created_at: new Date(Date.now() - 86400000).toISOString(),
+  },
+  {
+    id: "log-seed-3",
+    product_name: "Air Mesh Ultra Running Shoes",
+    article_no: "ART-103",
+    delta: 15,
+    reason: "Restock Delivery",
+    note: "Festival seasonal stock arrival",
+    adjusted_by: "Raj",
+    created_at: new Date(Date.now() - 86400000 * 3).toISOString(),
+  },
+  {
+    id: "log-seed-4",
+    product_name: "Kids Light-Up Active Sneaker",
+    article_no: "ART-109",
+    delta: 10,
+    reason: "Restock Delivery",
+    note: "Back-to-school fresh intake",
+    adjusted_by: "Aakif",
+    created_at: new Date(Date.now() - 86400000 * 4).toISOString(),
   },
 ];
 
@@ -61,11 +81,18 @@ export function StoreProvider({ children }) {
     message: "Connected to PostgreSQL database",
   });
 
-  // Users state
+  // Users state with self-healing to Moni, Raj, Aakif, Nishok
   const [users, setUsers] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.USERS);
-      return saved ? JSON.parse(saved) : initialUsersList;
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const hasRequestedUsers = parsed.some((u) =>
+          ["moni", "raj", "aakif", "nishok"].includes(u.name?.toLowerCase())
+        );
+        if (hasRequestedUsers && parsed.length >= 4) return parsed;
+      }
+      return initialUsersList;
     } catch {
       return initialUsersList;
     }
@@ -74,10 +101,13 @@ export function StoreProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
-      if (saved) return JSON.parse(saved);
-      const savedUsers = localStorage.getItem(STORAGE_KEYS.USERS);
-      const parsed = savedUsers ? JSON.parse(savedUsers) : initialUsersList;
-      return parsed[0] || initialUsersList[0];
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (["moni", "raj", "aakif", "nishok"].includes(parsed.name?.toLowerCase())) {
+          return parsed;
+        }
+      }
+      return initialUsersList[0];
     } catch {
       return initialUsersList[0];
     }
@@ -87,17 +117,30 @@ export function StoreProvider({ children }) {
   const [stockLogs, setStockLogs] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.STOCK_LOGS);
-      return saved ? JSON.parse(saved) : initialStockLogs;
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const hasNewNames = parsed.some((l) =>
+          ["moni", "raj", "aakif", "nishok"].includes(l.adjusted_by?.toLowerCase())
+        );
+        if (hasNewNames) return parsed;
+      }
+      return initialStockLogs;
     } catch {
       return initialStockLogs;
     }
   });
 
-  // Load state from localStorage or initialData
+  // Load state from localStorage or initialData with self-healing for new catalog
   const [products, setProducts] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
-      return saved ? JSON.parse(saved) : initialProducts;
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.length >= initialProducts.length) {
+          return parsed;
+        }
+      }
+      return initialProducts;
     } catch {
       return initialProducts;
     }
@@ -108,28 +151,33 @@ export function StoreProvider({ children }) {
       const saved = localStorage.getItem(STORAGE_KEYS.SALES);
       if (saved) {
         const parsed = JSON.parse(saved);
-        // Self-heal any corrupted sales where total is 0, null, or NaN
-        return parsed.map((s) => {
-          const itemsSubtotal = s.items?.reduce(
-            (sum, it) => sum + (Number(it.unit_price ?? it.unitPrice) || 0) * (Number(it.quantity) || 1),
-            0
-          ) || 0;
-          if ((!s.total || isNaN(s.total) || Number(s.total) === 0) && itemsSubtotal > 0) {
-            const disc = Number(s.discount_amount) || 0;
-            const taxable = Math.max(0, itemsSubtotal - disc);
-            const rate = Number(s.tax_rate) || 5;
-            const tax = (taxable * rate) / 100;
-            return {
-              ...s,
-              subtotal: itemsSubtotal,
-              discount_amount: disc,
-              tax_amount: tax,
-              tax_rate: rate,
-              total: Math.round((taxable + tax) * 100) / 100,
-            };
-          }
-          return s;
-        });
+        const hasNewUsers = parsed.some((s) =>
+          ["moni", "raj", "aakif", "nishok"].includes(s.billed_by?.toLowerCase())
+        );
+        if (hasNewUsers && parsed.length >= 4) {
+          // Self-heal any corrupted sales where total is 0, null, or NaN
+          return parsed.map((s) => {
+            const itemsSubtotal = s.items?.reduce(
+              (sum, it) => sum + (Number(it.unit_price ?? it.unitPrice) || 0) * (Number(it.quantity) || 1),
+              0
+            ) || 0;
+            if ((!s.total || isNaN(s.total) || Number(s.total) === 0) && itemsSubtotal > 0) {
+              const disc = Number(s.discount_amount) || 0;
+              const taxable = Math.max(0, itemsSubtotal - disc);
+              const rate = Number(s.tax_rate) || 5;
+              const tax = (taxable * rate) / 100;
+              return {
+                ...s,
+                subtotal: itemsSubtotal,
+                discount_amount: disc,
+                tax_amount: tax,
+                tax_rate: rate,
+                total: Math.round((taxable + tax) * 100) / 100,
+              };
+            }
+            return s;
+          });
+        }
       }
       return initialSales;
     } catch {

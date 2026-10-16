@@ -111,7 +111,9 @@ function MainWorkspace() {
       {/* SIDEBAR */}
       <aside className="sidebar">
         <div className="brand">
-          <div className="brand-seal">JDS</div>
+          <div className="brand-seal-logo-wrap">
+            <img src="/logo.png" alt="JDS Traders Logo" className="brand-logo-circle" />
+          </div>
           <div>
             <strong>JDS Traders</strong>
             <span>FOOTWEAR • SINCE 2014</span>
@@ -144,6 +146,11 @@ function MainWorkspace() {
 
       {/* MAIN CONTAINER */}
       <main className="main">
+        {/* Subtle circular logo watermark across the software */}
+        <div className="software-watermark" aria-hidden="true">
+          <img src="/logo.png" alt="" />
+        </div>
+
         {/* TOPBAR */}
         <header className="topbar">
           <div>

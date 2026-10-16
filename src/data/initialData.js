@@ -3,7 +3,7 @@ export const initialShopSettings = {
   tagline: "FOOTWEAR • SINCE 2014",
   phone: "+91 98400 12345",
   email: "contact@jdstraders.com",
-  address: "Shop No. 14, Commercial Plaza, Main Road, Tirupur, Tamil Nadu - 641604",
+  address: "Shop No. 14, Commercial Plaza, Main Road, Salem, Tamil Nadu - 636001",
   gstin: "33AAAAA0000A1Z5",
   currency: "₹",
   default_tax_rate: 5,
@@ -22,10 +22,10 @@ export const initialProducts = [
     tax_rate: 12,
     is_active: true,
     variants: [
-      { id: "var-101-6", size: "6", color: "Tan Brown", cost_price: 1350, selling_price: 2499, sku: "JDS-101-T-6", barcode: "890123410106", stock: 5, reorder_level: 3 },
+      { id: "var-101-6", size: "6", color: "Tan Brown", cost_price: 1350, selling_price: 2499, sku: "JDS-101-T-6", barcode: "890123410106", stock: 6, reorder_level: 3 },
       { id: "var-101-7", size: "7", color: "Tan Brown", cost_price: 1350, selling_price: 2499, sku: "JDS-101-T-7", barcode: "890123410107", stock: 8, reorder_level: 3 },
-      { id: "var-101-8", size: "8", color: "Tan Brown", cost_price: 1350, selling_price: 2499, sku: "JDS-101-T-8", barcode: "890123410108", stock: 6, reorder_level: 4 },
-      { id: "var-101-9", size: "9", color: "Tan Brown", cost_price: 1350, selling_price: 2499, sku: "JDS-101-T-9", barcode: "890123410109", stock: 2, reorder_level: 3 },
+      { id: "var-101-8", size: "8", color: "Tan Brown", cost_price: 1350, selling_price: 2499, sku: "JDS-101-T-8", barcode: "890123410108", stock: 11, reorder_level: 4 },
+      { id: "var-101-9", size: "9", color: "Tan Brown", cost_price: 1350, selling_price: 2499, sku: "JDS-101-T-9", barcode: "890123410109", stock: 5, reorder_level: 3 },
       { id: "var-101-10", size: "10", color: "Tan Brown", cost_price: 1350, selling_price: 2499, sku: "JDS-101-T-10", barcode: "890123410110", stock: 4, reorder_level: 2 },
     ]
   },
@@ -39,10 +39,10 @@ export const initialProducts = [
     tax_rate: 12,
     is_active: true,
     variants: [
-      { id: "var-102-7", size: "7", color: "Camel", cost_price: 2600, selling_price: 4295, sku: "WL-102-C-7", barcode: "890123410207", stock: 3, reorder_level: 3 },
+      { id: "var-102-7", size: "7", color: "Camel", cost_price: 2600, selling_price: 4295, sku: "WL-102-C-7", barcode: "890123410207", stock: 4, reorder_level: 3 },
       { id: "var-102-8", size: "8", color: "Camel", cost_price: 2600, selling_price: 4295, sku: "WL-102-C-8", barcode: "890123410208", stock: 2, reorder_level: 3 },
-      { id: "var-102-9", size: "9", color: "Camel", cost_price: 2600, selling_price: 4295, sku: "WL-102-C-9", barcode: "890123410209", stock: 5, reorder_level: 3 },
-      { id: "var-102-10", size: "10", color: "Camel", cost_price: 2600, selling_price: 4295, sku: "WL-102-C-10", barcode: "890123410210", stock: 4, reorder_level: 2 },
+      { id: "var-102-9", size: "9", color: "Camel", cost_price: 2600, selling_price: 4295, sku: "WL-102-C-9", barcode: "890123410209", stock: 6, reorder_level: 3 },
+      { id: "var-102-10", size: "10", color: "Camel", cost_price: 2600, selling_price: 4295, sku: "WL-102-C-10", barcode: "890123410210", stock: 3, reorder_level: 2 },
     ]
   },
   {
@@ -55,10 +55,10 @@ export const initialProducts = [
     tax_rate: 12,
     is_active: true,
     variants: [
-      { id: "var-103-6", size: "6", color: "Black/Red", cost_price: 720, selling_price: 1399, sku: "CAM-103-BR-6", barcode: "890123410306", stock: 7, reorder_level: 4 },
-      { id: "var-103-7", size: "7", color: "Black/Red", cost_price: 720, selling_price: 1399, sku: "CAM-103-BR-7", barcode: "890123410307", stock: 12, reorder_level: 4 },
-      { id: "var-103-8", size: "8", color: "Black/Red", cost_price: 720, selling_price: 1399, sku: "CAM-103-BR-8", barcode: "890123410308", stock: 9, reorder_level: 4 },
-      { id: "var-103-9", size: "9", color: "Black/Red", cost_price: 720, selling_price: 1399, sku: "CAM-103-BR-9", barcode: "890123410309", stock: 8, reorder_level: 3 },
+      { id: "var-103-6", size: "6", color: "Black/Red", cost_price: 720, selling_price: 1399, sku: "CAM-103-BR-6", barcode: "890123410306", stock: 8, reorder_level: 4 },
+      { id: "var-103-7", size: "7", color: "Black/Red", cost_price: 720, selling_price: 1399, sku: "CAM-103-BR-7", barcode: "890123410307", stock: 14, reorder_level: 4 },
+      { id: "var-103-8", size: "8", color: "Black/Red", cost_price: 720, selling_price: 1399, sku: "CAM-103-BR-8", barcode: "890123410308", stock: 12, reorder_level: 4 },
+      { id: "var-103-9", size: "9", color: "Black/Red", cost_price: 720, selling_price: 1399, sku: "CAM-103-BR-9", barcode: "890123410309", stock: 9, reorder_level: 3 },
       { id: "var-103-10", size: "10", color: "Black/Red", cost_price: 720, selling_price: 1399, sku: "CAM-103-BR-10", barcode: "890123410310", stock: 5, reorder_level: 2 },
     ]
   },
@@ -72,11 +72,11 @@ export const initialProducts = [
     tax_rate: 5,
     is_active: true,
     variants: [
-      { id: "var-104-6", size: "6", color: "Navy Blue", cost_price: 490, selling_price: 899, sku: "SPX-104-NV-6", barcode: "890123410406", stock: 6, reorder_level: 3 },
-      { id: "var-104-7", size: "7", color: "Navy Blue", cost_price: 490, selling_price: 899, sku: "SPX-104-NV-7", barcode: "890123410407", stock: 8, reorder_level: 3 },
+      { id: "var-104-6", size: "6", color: "Navy Blue", cost_price: 490, selling_price: 899, sku: "SPX-104-NV-6", barcode: "890123410406", stock: 7, reorder_level: 3 },
+      { id: "var-104-7", size: "7", color: "Navy Blue", cost_price: 490, selling_price: 899, sku: "SPX-104-NV-7", barcode: "890123410407", stock: 9, reorder_level: 3 },
       { id: "var-104-8", size: "8", color: "Navy Blue", cost_price: 490, selling_price: 899, sku: "SPX-104-NV-8", barcode: "890123410408", stock: 10, reorder_level: 3 },
-      { id: "var-104-9", size: "9", color: "Navy Blue", cost_price: 490, selling_price: 899, sku: "SPX-104-NV-9", barcode: "890123410409", stock: 5, reorder_level: 3 },
-      { id: "var-104-10", size: "10", color: "Navy Blue", cost_price: 490, selling_price: 899, sku: "SPX-104-NV-10", barcode: "890123410410", stock: 1, reorder_level: 3 },
+      { id: "var-104-9", size: "9", color: "Navy Blue", cost_price: 490, selling_price: 899, sku: "SPX-104-NV-9", barcode: "890123410409", stock: 6, reorder_level: 3 },
+      { id: "var-104-10", size: "10", color: "Navy Blue", cost_price: 490, selling_price: 899, sku: "SPX-104-NV-10", barcode: "890123410410", stock: 2, reorder_level: 3 },
     ]
   },
   {
@@ -106,10 +106,10 @@ export const initialProducts = [
     tax_rate: 5,
     is_active: true,
     variants: [
-      { id: "var-106-4", size: "4", color: "Beige", cost_price: 520, selling_price: 949, sku: "DOC-106-BG-4", barcode: "890123410604", stock: 4, reorder_level: 2 },
-      { id: "var-106-5", size: "5", color: "Beige", cost_price: 520, selling_price: 949, sku: "DOC-106-BG-5", barcode: "890123410605", stock: 8, reorder_level: 3 },
-      { id: "var-106-6", size: "6", color: "Beige", cost_price: 520, selling_price: 949, sku: "DOC-106-BG-6", barcode: "890123410606", stock: 11, reorder_level: 4 },
-      { id: "var-106-7", size: "7", color: "Beige", cost_price: 520, selling_price: 949, sku: "DOC-106-BG-7", barcode: "890123410607", stock: 7, reorder_level: 3 },
+      { id: "var-106-4", size: "4", color: "Beige", cost_price: 520, selling_price: 949, sku: "DOC-106-BG-4", barcode: "890123410604", stock: 5, reorder_level: 2 },
+      { id: "var-106-5", size: "5", color: "Beige", cost_price: 520, selling_price: 949, sku: "DOC-106-BG-5", barcode: "890123410605", stock: 9, reorder_level: 3 },
+      { id: "var-106-6", size: "6", color: "Beige", cost_price: 520, selling_price: 949, sku: "DOC-106-BG-6", barcode: "890123410606", stock: 12, reorder_level: 4 },
+      { id: "var-106-7", size: "7", color: "Beige", cost_price: 520, selling_price: 949, sku: "DOC-106-BG-7", barcode: "890123410607", stock: 8, reorder_level: 3 },
       { id: "var-106-8", size: "8", color: "Beige", cost_price: 520, selling_price: 949, sku: "DOC-106-BG-8", barcode: "890123410608", stock: 5, reorder_level: 2 },
     ]
   },
@@ -123,10 +123,10 @@ export const initialProducts = [
     tax_rate: 5,
     is_active: true,
     variants: [
-      { id: "var-107-1", size: "1", color: "Black", cost_price: 380, selling_price: 699, sku: "BAT-107-BK-1", barcode: "890123410701", stock: 6, reorder_level: 3 },
-      { id: "var-107-2", size: "2", color: "Black", cost_price: 380, selling_price: 699, sku: "BAT-107-BK-2", barcode: "890123410702", stock: 9, reorder_level: 3 },
-      { id: "var-107-3", size: "3", color: "Black", cost_price: 380, selling_price: 699, sku: "BAT-107-BK-3", barcode: "890123410703", stock: 12, reorder_level: 4 },
-      { id: "var-107-4", size: "4", color: "Black", cost_price: 380, selling_price: 699, sku: "BAT-107-BK-4", barcode: "890123410704", stock: 10, reorder_level: 3 },
+      { id: "var-107-1", size: "1", color: "Black", cost_price: 380, selling_price: 699, sku: "BAT-107-BK-1", barcode: "890123410701", stock: 7, reorder_level: 3 },
+      { id: "var-107-2", size: "2", color: "Black", cost_price: 380, selling_price: 699, sku: "BAT-107-BK-2", barcode: "890123410702", stock: 10, reorder_level: 3 },
+      { id: "var-107-3", size: "3", color: "Black", cost_price: 380, selling_price: 699, sku: "BAT-107-BK-3", barcode: "890123410703", stock: 13, reorder_level: 4 },
+      { id: "var-107-4", size: "4", color: "Black", cost_price: 380, selling_price: 699, sku: "BAT-107-BK-4", barcode: "890123410704", stock: 11, reorder_level: 3 },
       { id: "var-107-5", size: "5", color: "Black", cost_price: 380, selling_price: 699, sku: "BAT-107-BK-5", barcode: "890123410705", stock: 8, reorder_level: 3 },
     ]
   },
@@ -140,10 +140,44 @@ export const initialProducts = [
     tax_rate: 12,
     is_active: true,
     variants: [
-      { id: "var-108-2", size: "2", color: "Electric Blue", cost_price: 580, selling_price: 1099, sku: "JDS-108-BL-2", barcode: "890123410802", stock: 5, reorder_level: 3 },
-      { id: "var-108-3", size: "3", color: "Electric Blue", cost_price: 580, selling_price: 1099, sku: "JDS-108-BL-3", barcode: "890123410803", stock: 7, reorder_level: 3 },
-      { id: "var-108-4", size: "4", color: "Electric Blue", cost_price: 580, selling_price: 1099, sku: "JDS-108-BL-4", barcode: "890123410804", stock: 4, reorder_level: 3 },
-      { id: "var-108-5", size: "5", color: "Electric Blue", cost_price: 580, selling_price: 1099, sku: "JDS-108-BL-5", barcode: "890123410805", stock: 2, reorder_level: 3 },
+      { id: "var-108-2", size: "2", color: "Electric Blue", cost_price: 580, selling_price: 1099, sku: "JDS-108-BL-2", barcode: "890123410802", stock: 6, reorder_level: 3 },
+      { id: "var-108-3", size: "3", color: "Electric Blue", cost_price: 580, selling_price: 1099, sku: "JDS-108-BL-3", barcode: "890123410803", stock: 8, reorder_level: 3 },
+      { id: "var-108-4", size: "4", color: "Electric Blue", cost_price: 580, selling_price: 1099, sku: "JDS-108-BL-4", barcode: "890123410804", stock: 5, reorder_level: 3 },
+      { id: "var-108-5", size: "5", color: "Electric Blue", cost_price: 580, selling_price: 1099, sku: "JDS-108-BL-5", barcode: "890123410805", stock: 3, reorder_level: 3 },
+    ]
+  },
+  {
+    id: "prod-9",
+    article_no: "ART-109",
+    name: "Premium Wingtip Leather Brogues",
+    brand: "Bata",
+    category: "Men",
+    sub_category: "Formal",
+    tax_rate: 12,
+    is_active: true,
+    variants: [
+      { id: "var-109-6", size: "6", color: "Cognac Brown", cost_price: 1450, selling_price: 2799, sku: "BAT-109-CG-6", barcode: "890123410906", stock: 5, reorder_level: 3 },
+      { id: "var-109-7", size: "7", color: "Cognac Brown", cost_price: 1450, selling_price: 2799, sku: "BAT-109-CG-7", barcode: "890123410907", stock: 7, reorder_level: 3 },
+      { id: "var-109-8", size: "8", color: "Cognac Brown", cost_price: 1450, selling_price: 2799, sku: "BAT-109-CG-8", barcode: "890123410908", stock: 9, reorder_level: 3 },
+      { id: "var-109-9", size: "9", color: "Cognac Brown", cost_price: 1450, selling_price: 2799, sku: "BAT-109-CG-9", barcode: "890123410909", stock: 6, reorder_level: 3 },
+      { id: "var-109-10", size: "10", color: "Cognac Brown", cost_price: 1450, selling_price: 2799, sku: "BAT-109-CG-10", barcode: "890123410910", stock: 3, reorder_level: 2 },
+    ]
+  },
+  {
+    id: "prod-10",
+    article_no: "ART-110",
+    name: "Ultra Cushioned Daily Walking Loafers",
+    brand: "JD Signature",
+    category: "Men",
+    sub_category: "Casual",
+    tax_rate: 5,
+    is_active: true,
+    variants: [
+      { id: "var-110-6", size: "6", color: "Charcoal Grey", cost_price: 520, selling_price: 999, sku: "JDS-110-GR-6", barcode: "890123411006", stock: 6, reorder_level: 3 },
+      { id: "var-110-7", size: "7", color: "Charcoal Grey", cost_price: 520, selling_price: 999, sku: "JDS-110-GR-7", barcode: "890123411007", stock: 10, reorder_level: 3 },
+      { id: "var-110-8", size: "8", color: "Charcoal Grey", cost_price: 520, selling_price: 999, sku: "JDS-110-GR-8", barcode: "890123411008", stock: 12, reorder_level: 3 },
+      { id: "var-110-9", size: "9", color: "Charcoal Grey", cost_price: 520, selling_price: 999, sku: "JDS-110-GR-9", barcode: "890123411009", stock: 8, reorder_level: 3 },
+      { id: "var-110-10", size: "10", color: "Charcoal Grey", cost_price: 520, selling_price: 999, sku: "JDS-110-GR-10", barcode: "890123411010", stock: 4, reorder_level: 2 },
     ]
   }
 ];
@@ -152,12 +186,15 @@ export const initialSales = [
   {
     id: "sale-1001",
     invoice_no: "JDS-INV-2026-0038",
-    created_at: new Date(Date.now() - 3600000 * 2).toISOString(),
+    created_at: new Date(Date.now() - 3600000 * 1.5).toISOString(),
+    billed_by: "Aakif",
+    user_role: "Cashier",
     customer: { name: "Rajesh Kumar", phone: "9876543210" },
     status: "Completed",
     subtotal: 2499,
     discount_amount: 100,
     tax_amount: 119.95,
+    tax_rate: 5,
     total: 2518.95,
     payment_method: "UPI",
     items: [
@@ -178,12 +215,15 @@ export const initialSales = [
   {
     id: "sale-1002",
     invoice_no: "JDS-INV-2026-0039",
-    created_at: new Date(Date.now() - 3600000 * 4).toISOString(),
+    created_at: new Date(Date.now() - 3600000 * 3.5).toISOString(),
+    billed_by: "Nishok",
+    user_role: "Staff",
     customer: { name: "Kavitha M", phone: "9841238910" },
     status: "Completed",
     subtotal: 2848,
     discount_amount: 150,
     tax_amount: 134.9,
+    tax_rate: 5,
     total: 2832.9,
     payment_method: "Cash",
     items: [
@@ -216,14 +256,18 @@ export const initialSales = [
   {
     id: "sale-1003",
     invoice_no: "JDS-INV-2026-0040",
-    created_at: new Date(Date.now() - 3600000 * 7).toISOString(),
+    created_at: new Date(Date.now() - 3600000 * 6).toISOString(),
+    billed_by: "Raj",
+    user_role: "Admin",
     customer: { name: "Arun Prakash", phone: "9443219087" },
     status: "Completed",
     subtotal: 4295,
     discount_amount: 200,
     tax_amount: 204.75,
+    tax_rate: 5,
     total: 4299.75,
-    payment_method: "Card",
+    payment_method: "Split",
+    payment_split: { cash: 2000, upi: 2299.75 },
     items: [
       {
         product_id: "prod-2",
@@ -242,12 +286,15 @@ export const initialSales = [
   {
     id: "sale-1004",
     invoice_no: "JDS-INV-2026-0041",
-    created_at: new Date(Date.now() - 86400000).toISOString(),
+    created_at: new Date(Date.now() - 3600000 * 9).toISOString(),
+    billed_by: "Moni",
+    user_role: "Admin",
     customer: { name: "Suresh Babu", phone: "9940123765" },
     status: "Completed",
     subtotal: 1399,
     discount_amount: 0,
     tax_amount: 69.95,
+    tax_rate: 5,
     total: 1468.95,
     payment_method: "UPI",
     items: [
@@ -268,12 +315,15 @@ export const initialSales = [
   {
     id: "sale-1005",
     invoice_no: "JDS-INV-2026-0042",
-    created_at: new Date(Date.now() - 86400000 * 2).toISOString(),
+    created_at: new Date(Date.now() - 86400000).toISOString(),
+    billed_by: "Aakif",
+    user_role: "Cashier",
     customer: { name: "Priya Sundar", phone: "9884512903" },
     status: "Completed",
     subtotal: 1598,
     discount_amount: 100,
     tax_amount: 74.9,
+    tax_rate: 5,
     total: 1572.9,
     payment_method: "Cash",
     items: [
@@ -302,6 +352,35 @@ export const initialSales = [
         discount_amount: 50,
       }
     ]
+  },
+  {
+    id: "sale-1006",
+    invoice_no: "JDS-INV-2026-0043",
+    created_at: new Date(Date.now() - 86400000 * 2).toISOString(),
+    billed_by: "Moni",
+    user_role: "Admin",
+    customer: { name: "Vijay Anand", phone: "9789123456" },
+    status: "Completed",
+    subtotal: 2799,
+    discount_amount: 150,
+    tax_amount: 132.45,
+    tax_rate: 5,
+    total: 2781.45,
+    payment_method: "UPI",
+    items: [
+      {
+        product_id: "prod-9",
+        variant_id: "var-109-8",
+        product_name: "Premium Wingtip Leather Brogues",
+        article_no: "ART-109",
+        brand: "Bata",
+        size: "8",
+        color: "Cognac Brown",
+        unit_price: 2799,
+        quantity: 1,
+        discount_amount: 150,
+      }
+    ]
   }
 ];
 
@@ -315,13 +394,13 @@ export const initialNotifications = [
     type: "stock",
     targetTab: "inventory",
     productId: "prod-2",
-    productName: "Woodland Rugged Boots",
+    productName: "Woodland Adventure Boots",
   },
   {
     id: "notif-2",
     title: "Sale Completed",
-    message: "Invoice JDS-INV-2026-0038 for ₹2,519 via UPI.",
-    time: "2 hours ago",
+    message: "Invoice JDS-INV-2026-0038 for ₹2,519 via UPI by Aakif.",
+    time: "1 hour ago",
     unread: true,
     type: "sale",
     targetTab: "transactions",
@@ -330,13 +409,13 @@ export const initialNotifications = [
   },
   {
     id: "notif-3",
-    title: "Low Stock Alert",
-    message: "Sparx Loafer (Navy Blue, Size 10) has only 1 pair left.",
-    time: "4 hours ago",
+    title: "Stock Inward Logged",
+    message: "Moni logged restock of Bata Wingtip Brogues (+20 pairs).",
+    time: "3 hours ago",
     unread: false,
     type: "stock",
     targetTab: "inventory",
-    productId: "prod-4",
-    productName: "Sparx Loafer",
+    productId: "prod-9",
+    productName: "Bata Wingtip Brogues",
   },
 ];

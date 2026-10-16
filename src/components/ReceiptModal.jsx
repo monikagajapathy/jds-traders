@@ -55,9 +55,13 @@ export default function ReceiptModal() {
 
         {/* Printable Invoice Container */}
         <div className="printable-receipt">
+          <div className="receipt-watermark" aria-hidden="true">
+            <img src="/logo.png" alt="" />
+          </div>
+
           <div className="receipt-header">
-            <div className="receipt-brand-mark">
-              <Footprints size={26} />
+            <div className="receipt-brand-logo-wrap">
+              <img src="/logo.png" alt="JDS Traders Logo" className="receipt-brand-logo" />
             </div>
             <h2>{settings.shop_name}</h2>
             <div className="receipt-tagline">{settings.tagline}</div>
