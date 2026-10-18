@@ -24,11 +24,11 @@ export const initialProducts = [
     tax_rate: 12,
     is_active: true,
     variants: [
-      { id: "var-101-6", size: "6", color: "Tan Brown", cost_price: 1350, selling_price: 2499, sku: "JDS-101-T-6", barcode: "890123410106", stock: 6, reorder_level: 3 },
-      { id: "var-101-7", size: "7", color: "Tan Brown", cost_price: 1350, selling_price: 2499, sku: "JDS-101-T-7", barcode: "890123410107", stock: 8, reorder_level: 3 },
-      { id: "var-101-8", size: "8", color: "Tan Brown", cost_price: 1350, selling_price: 2499, sku: "JDS-101-T-8", barcode: "890123410108", stock: 11, reorder_level: 4 },
-      { id: "var-101-9", size: "9", color: "Tan Brown", cost_price: 1350, selling_price: 2499, sku: "JDS-101-T-9", barcode: "890123410109", stock: 5, reorder_level: 3 },
-      { id: "var-101-10", size: "10", color: "Tan Brown", cost_price: 1350, selling_price: 2499, sku: "JDS-101-T-10", barcode: "890123410110", stock: 4, reorder_level: 2 },
+      { id: "var-101-6", size: "6", color: "Tan Brown", cost_price: 1050, selling_price: 1999, tax_rate: 12, sku: "JDS-101-T-6", barcode: "890123410106", stock: 6, reorder_level: 3 },
+      { id: "var-101-7", size: "7", color: "Tan Brown", cost_price: 1120, selling_price: 2099, tax_rate: 12, sku: "JDS-101-T-7", barcode: "890123410107", stock: 8, reorder_level: 3 },
+      { id: "var-101-8", size: "8", color: "Tan Brown", cost_price: 1180, selling_price: 2199, tax_rate: 12, sku: "JDS-101-T-8", barcode: "890123410108", stock: 11, reorder_level: 4 },
+      { id: "var-101-9", size: "9", color: "Tan Brown", cost_price: 1250, selling_price: 2349, tax_rate: 12, sku: "JDS-101-T-9", barcode: "890123410109", stock: 5, reorder_level: 3 },
+      { id: "var-101-10", size: "10", color: "Tan Brown", cost_price: 1320, selling_price: 2499, tax_rate: 12, sku: "JDS-101-T-10", barcode: "890123410110", stock: 4, reorder_level: 2 },
     ]
   },
   {
@@ -41,10 +41,10 @@ export const initialProducts = [
     tax_rate: 12,
     is_active: true,
     variants: [
-      { id: "var-102-7", size: "7", color: "Camel", cost_price: 2600, selling_price: 4295, sku: "WL-102-C-7", barcode: "890123410207", stock: 4, reorder_level: 3 },
-      { id: "var-102-8", size: "8", color: "Camel", cost_price: 2600, selling_price: 4295, sku: "WL-102-C-8", barcode: "890123410208", stock: 2, reorder_level: 3 },
-      { id: "var-102-9", size: "9", color: "Camel", cost_price: 2600, selling_price: 4295, sku: "WL-102-C-9", barcode: "890123410209", stock: 6, reorder_level: 3 },
-      { id: "var-102-10", size: "10", color: "Camel", cost_price: 2600, selling_price: 4295, sku: "WL-102-C-10", barcode: "890123410210", stock: 3, reorder_level: 2 },
+      { id: "var-102-7", size: "7", color: "Camel", cost_price: 2200, selling_price: 3795, tax_rate: 12, sku: "WL-102-C-7", barcode: "890123410207", stock: 4, reorder_level: 3 },
+      { id: "var-102-8", size: "8", color: "Camel", cost_price: 2350, selling_price: 3995, tax_rate: 12, sku: "WL-102-C-8", barcode: "890123410208", stock: 2, reorder_level: 3 },
+      { id: "var-102-9", size: "9", color: "Camel", cost_price: 2500, selling_price: 4295, tax_rate: 12, sku: "WL-102-C-9", barcode: "890123410209", stock: 6, reorder_level: 3 },
+      { id: "var-102-10", size: "10", color: "Camel", cost_price: 2650, selling_price: 4495, tax_rate: 12, sku: "WL-102-C-10", barcode: "890123410210", stock: 3, reorder_level: 2 },
     ]
   },
   {
@@ -57,11 +57,11 @@ export const initialProducts = [
     tax_rate: 12,
     is_active: true,
     variants: [
-      { id: "var-103-6", size: "6", color: "Black/Red", cost_price: 720, selling_price: 1399, sku: "CAM-103-BR-6", barcode: "890123410306", stock: 8, reorder_level: 4 },
-      { id: "var-103-7", size: "7", color: "Black/Red", cost_price: 720, selling_price: 1399, sku: "CAM-103-BR-7", barcode: "890123410307", stock: 14, reorder_level: 4 },
-      { id: "var-103-8", size: "8", color: "Black/Red", cost_price: 720, selling_price: 1399, sku: "CAM-103-BR-8", barcode: "890123410308", stock: 12, reorder_level: 4 },
-      { id: "var-103-9", size: "9", color: "Black/Red", cost_price: 720, selling_price: 1399, sku: "CAM-103-BR-9", barcode: "890123410309", stock: 9, reorder_level: 3 },
-      { id: "var-103-10", size: "10", color: "Black/Red", cost_price: 720, selling_price: 1399, sku: "CAM-103-BR-10", barcode: "890123410310", stock: 5, reorder_level: 2 },
+      { id: "var-103-6", size: "6", color: "Black/Red", cost_price: 600, selling_price: 1199, tax_rate: 12, sku: "CAM-103-BR-6", barcode: "890123410306", stock: 8, reorder_level: 4 },
+      { id: "var-103-7", size: "7", color: "Black/Red", cost_price: 640, selling_price: 1279, tax_rate: 12, sku: "CAM-103-BR-7", barcode: "890123410307", stock: 14, reorder_level: 4 },
+      { id: "var-103-8", size: "8", color: "Black/Red", cost_price: 680, selling_price: 1349, tax_rate: 12, sku: "CAM-103-BR-8", barcode: "890123410308", stock: 12, reorder_level: 4 },
+      { id: "var-103-9", size: "9", color: "Black/Red", cost_price: 720, selling_price: 1429, tax_rate: 12, sku: "CAM-103-BR-9", barcode: "890123410309", stock: 9, reorder_level: 3 },
+      { id: "var-103-10", size: "10", color: "Black/Red", cost_price: 760, selling_price: 1499, tax_rate: 12, sku: "CAM-103-BR-10", barcode: "890123410310", stock: 5, reorder_level: 2 },
     ]
   },
   {
@@ -74,11 +74,11 @@ export const initialProducts = [
     tax_rate: 5,
     is_active: true,
     variants: [
-      { id: "var-104-6", size: "6", color: "Navy Blue", cost_price: 490, selling_price: 899, sku: "SPX-104-NV-6", barcode: "890123410406", stock: 7, reorder_level: 3 },
-      { id: "var-104-7", size: "7", color: "Navy Blue", cost_price: 490, selling_price: 899, sku: "SPX-104-NV-7", barcode: "890123410407", stock: 9, reorder_level: 3 },
-      { id: "var-104-8", size: "8", color: "Navy Blue", cost_price: 490, selling_price: 899, sku: "SPX-104-NV-8", barcode: "890123410408", stock: 10, reorder_level: 3 },
-      { id: "var-104-9", size: "9", color: "Navy Blue", cost_price: 490, selling_price: 899, sku: "SPX-104-NV-9", barcode: "890123410409", stock: 6, reorder_level: 3 },
-      { id: "var-104-10", size: "10", color: "Navy Blue", cost_price: 490, selling_price: 899, sku: "SPX-104-NV-10", barcode: "890123410410", stock: 2, reorder_level: 3 },
+      { id: "var-104-6", size: "6", color: "Navy Blue", cost_price: 410, selling_price: 799, tax_rate: 5, sku: "SPX-104-NV-6", barcode: "890123410406", stock: 7, reorder_level: 3 },
+      { id: "var-104-7", size: "7", color: "Navy Blue", cost_price: 440, selling_price: 849, tax_rate: 5, sku: "SPX-104-NV-7", barcode: "890123410407", stock: 9, reorder_level: 3 },
+      { id: "var-104-8", size: "8", color: "Navy Blue", cost_price: 470, selling_price: 899, tax_rate: 5, sku: "SPX-104-NV-8", barcode: "890123410408", stock: 10, reorder_level: 3 },
+      { id: "var-104-9", size: "9", color: "Navy Blue", cost_price: 510, selling_price: 949, tax_rate: 5, sku: "SPX-104-NV-9", barcode: "890123410409", stock: 6, reorder_level: 3 },
+      { id: "var-104-10", size: "10", color: "Navy Blue", cost_price: 560, selling_price: 1049, tax_rate: 12, sku: "SPX-104-NV-10", barcode: "890123410410", stock: 2, reorder_level: 3 },
     ]
   },
   {
@@ -91,11 +91,11 @@ export const initialProducts = [
     tax_rate: 12,
     is_active: true,
     variants: [
-      { id: "var-105-4", size: "4", color: "Glossy Black", cost_price: 980, selling_price: 1899, sku: "MET-105-BK-4", barcode: "890123410504", stock: 4, reorder_level: 2 },
-      { id: "var-105-5", size: "5", color: "Glossy Black", cost_price: 980, selling_price: 1899, sku: "MET-105-BK-5", barcode: "890123410505", stock: 7, reorder_level: 3 },
-      { id: "var-105-6", size: "6", color: "Glossy Black", cost_price: 980, selling_price: 1899, sku: "MET-105-BK-6", barcode: "890123410506", stock: 9, reorder_level: 3 },
-      { id: "var-105-7", size: "7", color: "Glossy Black", cost_price: 980, selling_price: 1899, sku: "MET-105-BK-7", barcode: "890123410507", stock: 6, reorder_level: 3 },
-      { id: "var-105-8", size: "8", color: "Glossy Black", cost_price: 980, selling_price: 1899, sku: "MET-105-BK-8", barcode: "890123410508", stock: 3, reorder_level: 2 },
+      { id: "var-105-4", size: "4", color: "Glossy Black", cost_price: 850, selling_price: 1699, tax_rate: 12, sku: "MET-105-BK-4", barcode: "890123410504", stock: 4, reorder_level: 2 },
+      { id: "var-105-5", size: "5", color: "Glossy Black", cost_price: 890, selling_price: 1779, tax_rate: 12, sku: "MET-105-BK-5", barcode: "890123410505", stock: 7, reorder_level: 3 },
+      { id: "var-105-6", size: "6", color: "Glossy Black", cost_price: 940, selling_price: 1859, tax_rate: 12, sku: "MET-105-BK-6", barcode: "890123410506", stock: 9, reorder_level: 3 },
+      { id: "var-105-7", size: "7", color: "Glossy Black", cost_price: 980, selling_price: 1949, tax_rate: 12, sku: "MET-105-BK-7", barcode: "890123410507", stock: 6, reorder_level: 3 },
+      { id: "var-105-8", size: "8", color: "Glossy Black", cost_price: 1020, selling_price: 1999, tax_rate: 12, sku: "MET-105-BK-8", barcode: "890123410508", stock: 3, reorder_level: 2 },
     ]
   },
   {
@@ -108,11 +108,11 @@ export const initialProducts = [
     tax_rate: 5,
     is_active: true,
     variants: [
-      { id: "var-106-4", size: "4", color: "Beige", cost_price: 520, selling_price: 949, sku: "DOC-106-BG-4", barcode: "890123410604", stock: 5, reorder_level: 2 },
-      { id: "var-106-5", size: "5", color: "Beige", cost_price: 520, selling_price: 949, sku: "DOC-106-BG-5", barcode: "890123410605", stock: 9, reorder_level: 3 },
-      { id: "var-106-6", size: "6", color: "Beige", cost_price: 520, selling_price: 949, sku: "DOC-106-BG-6", barcode: "890123410606", stock: 12, reorder_level: 4 },
-      { id: "var-106-7", size: "7", color: "Beige", cost_price: 520, selling_price: 949, sku: "DOC-106-BG-7", barcode: "890123410607", stock: 8, reorder_level: 3 },
-      { id: "var-106-8", size: "8", color: "Beige", cost_price: 520, selling_price: 949, sku: "DOC-106-BG-8", barcode: "890123410608", stock: 5, reorder_level: 2 },
+      { id: "var-106-4", size: "4", color: "Beige", cost_price: 430, selling_price: 829, tax_rate: 5, sku: "DOC-106-BG-4", barcode: "890123410604", stock: 5, reorder_level: 2 },
+      { id: "var-106-5", size: "5", color: "Beige", cost_price: 460, selling_price: 879, tax_rate: 5, sku: "DOC-106-BG-5", barcode: "890123410605", stock: 9, reorder_level: 3 },
+      { id: "var-106-6", size: "6", color: "Beige", cost_price: 490, selling_price: 929, tax_rate: 5, sku: "DOC-106-BG-6", barcode: "890123410606", stock: 12, reorder_level: 4 },
+      { id: "var-106-7", size: "7", color: "Beige", cost_price: 520, selling_price: 979, tax_rate: 5, sku: "DOC-106-BG-7", barcode: "890123410607", stock: 8, reorder_level: 3 },
+      { id: "var-106-8", size: "8", color: "Beige", cost_price: 570, selling_price: 1049, tax_rate: 12, sku: "DOC-106-BG-8", barcode: "890123410608", stock: 5, reorder_level: 2 },
     ]
   },
   {
@@ -125,11 +125,11 @@ export const initialProducts = [
     tax_rate: 5,
     is_active: true,
     variants: [
-      { id: "var-107-1", size: "1", color: "Black", cost_price: 380, selling_price: 699, sku: "BAT-107-BK-1", barcode: "890123410701", stock: 7, reorder_level: 3 },
-      { id: "var-107-2", size: "2", color: "Black", cost_price: 380, selling_price: 699, sku: "BAT-107-BK-2", barcode: "890123410702", stock: 10, reorder_level: 3 },
-      { id: "var-107-3", size: "3", color: "Black", cost_price: 380, selling_price: 699, sku: "BAT-107-BK-3", barcode: "890123410703", stock: 13, reorder_level: 4 },
-      { id: "var-107-4", size: "4", color: "Black", cost_price: 380, selling_price: 699, sku: "BAT-107-BK-4", barcode: "890123410704", stock: 11, reorder_level: 3 },
-      { id: "var-107-5", size: "5", color: "Black", cost_price: 380, selling_price: 699, sku: "BAT-107-BK-5", barcode: "890123410705", stock: 8, reorder_level: 3 },
+      { id: "var-107-1", size: "1", color: "Black", cost_price: 290, selling_price: 549, tax_rate: 5, sku: "BAT-107-BK-1", barcode: "890123410701", stock: 7, reorder_level: 3 },
+      { id: "var-107-2", size: "2", color: "Black", cost_price: 320, selling_price: 599, tax_rate: 5, sku: "BAT-107-BK-2", barcode: "890123410702", stock: 10, reorder_level: 3 },
+      { id: "var-107-3", size: "3", color: "Black", cost_price: 350, selling_price: 649, tax_rate: 5, sku: "BAT-107-BK-3", barcode: "890123410703", stock: 13, reorder_level: 4 },
+      { id: "var-107-4", size: "4", color: "Black", cost_price: 380, selling_price: 699, tax_rate: 5, sku: "BAT-107-BK-4", barcode: "890123410704", stock: 11, reorder_level: 3 },
+      { id: "var-107-5", size: "5", color: "Black", cost_price: 410, selling_price: 749, tax_rate: 5, sku: "BAT-107-BK-5", barcode: "890123410705", stock: 8, reorder_level: 3 },
     ]
   },
   {
@@ -139,13 +139,13 @@ export const initialProducts = [
     brand: "JD Sport",
     category: "Boys",
     sub_category: "Sports",
-    tax_rate: 12,
+    tax_rate: 5,
     is_active: true,
     variants: [
-      { id: "var-108-2", size: "2", color: "Electric Blue", cost_price: 580, selling_price: 1099, sku: "JDS-108-BL-2", barcode: "890123410802", stock: 6, reorder_level: 3 },
-      { id: "var-108-3", size: "3", color: "Electric Blue", cost_price: 580, selling_price: 1099, sku: "JDS-108-BL-3", barcode: "890123410803", stock: 8, reorder_level: 3 },
-      { id: "var-108-4", size: "4", color: "Electric Blue", cost_price: 580, selling_price: 1099, sku: "JDS-108-BL-4", barcode: "890123410804", stock: 5, reorder_level: 3 },
-      { id: "var-108-5", size: "5", color: "Electric Blue", cost_price: 580, selling_price: 1099, sku: "JDS-108-BL-5", barcode: "890123410805", stock: 3, reorder_level: 3 },
+      { id: "var-108-2", size: "2", color: "Electric Blue", cost_price: 480, selling_price: 899, tax_rate: 5, sku: "JDS-108-BL-2", barcode: "890123410802", stock: 6, reorder_level: 3 },
+      { id: "var-108-3", size: "3", color: "Electric Blue", cost_price: 510, selling_price: 949, tax_rate: 5, sku: "JDS-108-BL-3", barcode: "890123410803", stock: 8, reorder_level: 3 },
+      { id: "var-108-4", size: "4", color: "Electric Blue", cost_price: 540, selling_price: 999, tax_rate: 5, sku: "JDS-108-BL-4", barcode: "890123410804", stock: 5, reorder_level: 3 },
+      { id: "var-108-5", size: "5", color: "Electric Blue", cost_price: 580, selling_price: 1049, tax_rate: 12, sku: "JDS-108-BL-5", barcode: "890123410805", stock: 3, reorder_level: 3 },
     ]
   },
   {
@@ -158,11 +158,11 @@ export const initialProducts = [
     tax_rate: 12,
     is_active: true,
     variants: [
-      { id: "var-109-6", size: "6", color: "Cognac Brown", cost_price: 1450, selling_price: 2799, sku: "BAT-109-CG-6", barcode: "890123410906", stock: 5, reorder_level: 3 },
-      { id: "var-109-7", size: "7", color: "Cognac Brown", cost_price: 1450, selling_price: 2799, sku: "BAT-109-CG-7", barcode: "890123410907", stock: 7, reorder_level: 3 },
-      { id: "var-109-8", size: "8", color: "Cognac Brown", cost_price: 1450, selling_price: 2799, sku: "BAT-109-CG-8", barcode: "890123410908", stock: 9, reorder_level: 3 },
-      { id: "var-109-9", size: "9", color: "Cognac Brown", cost_price: 1450, selling_price: 2799, sku: "BAT-109-CG-9", barcode: "890123410909", stock: 6, reorder_level: 3 },
-      { id: "var-109-10", size: "10", color: "Cognac Brown", cost_price: 1450, selling_price: 2799, sku: "BAT-109-CG-10", barcode: "890123410910", stock: 3, reorder_level: 2 },
+      { id: "var-109-6", size: "6", color: "Cognac Brown", cost_price: 1300, selling_price: 2399, tax_rate: 12, sku: "BAT-109-CG-6", barcode: "890123410906", stock: 5, reorder_level: 3 },
+      { id: "var-109-7", size: "7", color: "Cognac Brown", cost_price: 1380, selling_price: 2499, tax_rate: 12, sku: "BAT-109-CG-7", barcode: "890123410907", stock: 7, reorder_level: 3 },
+      { id: "var-109-8", size: "8", color: "Cognac Brown", cost_price: 1450, selling_price: 2649, tax_rate: 12, sku: "BAT-109-CG-8", barcode: "890123410908", stock: 9, reorder_level: 3 },
+      { id: "var-109-9", size: "9", color: "Cognac Brown", cost_price: 1520, selling_price: 2799, tax_rate: 12, sku: "BAT-109-CG-9", barcode: "890123410909", stock: 6, reorder_level: 3 },
+      { id: "var-109-10", size: "10", color: "Cognac Brown", cost_price: 1600, selling_price: 2949, tax_rate: 12, sku: "BAT-109-CG-10", barcode: "890123410910", stock: 3, reorder_level: 2 },
     ]
   },
   {
@@ -175,11 +175,11 @@ export const initialProducts = [
     tax_rate: 5,
     is_active: true,
     variants: [
-      { id: "var-110-6", size: "6", color: "Charcoal Grey", cost_price: 520, selling_price: 999, sku: "JDS-110-GR-6", barcode: "890123411006", stock: 6, reorder_level: 3 },
-      { id: "var-110-7", size: "7", color: "Charcoal Grey", cost_price: 520, selling_price: 999, sku: "JDS-110-GR-7", barcode: "890123411007", stock: 10, reorder_level: 3 },
-      { id: "var-110-8", size: "8", color: "Charcoal Grey", cost_price: 520, selling_price: 999, sku: "JDS-110-GR-8", barcode: "890123411008", stock: 12, reorder_level: 3 },
-      { id: "var-110-9", size: "9", color: "Charcoal Grey", cost_price: 520, selling_price: 999, sku: "JDS-110-GR-9", barcode: "890123411009", stock: 8, reorder_level: 3 },
-      { id: "var-110-10", size: "10", color: "Charcoal Grey", cost_price: 520, selling_price: 999, sku: "JDS-110-GR-10", barcode: "890123411010", stock: 4, reorder_level: 2 },
+      { id: "var-110-6", size: "6", color: "Charcoal Grey", cost_price: 470, selling_price: 899, tax_rate: 5, sku: "JDS-110-GR-6", barcode: "890123411006", stock: 6, reorder_level: 3 },
+      { id: "var-110-7", size: "7", color: "Charcoal Grey", cost_price: 500, selling_price: 949, tax_rate: 5, sku: "JDS-110-GR-7", barcode: "890123411007", stock: 10, reorder_level: 3 },
+      { id: "var-110-8", size: "8", color: "Charcoal Grey", cost_price: 530, selling_price: 999, tax_rate: 5, sku: "JDS-110-GR-8", barcode: "890123411008", stock: 12, reorder_level: 3 },
+      { id: "var-110-9", size: "9", color: "Charcoal Grey", cost_price: 570, selling_price: 1049, tax_rate: 12, sku: "JDS-110-GR-9", barcode: "890123411009", stock: 8, reorder_level: 3 },
+      { id: "var-110-10", size: "10", color: "Charcoal Grey", cost_price: 610, selling_price: 1099, tax_rate: 12, sku: "JDS-110-GR-10", barcode: "890123411010", stock: 4, reorder_level: 2 },
     ]
   }
 ];

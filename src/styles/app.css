@@ -574,34 +574,88 @@
 
 .footwear-card-price {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   margin-bottom: 8px;
   padding-bottom: 6px;
   border-bottom: 1px dashed #e2e8f0;
+  min-height: 28px;
 }
 
-.footwear-card-price strong {
+.footwear-card-price.has-selection {
+  border-bottom-color: #cbd5e1;
+}
+
+.selected-price-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.selected-price-val {
   font-size: 15px;
   font-weight: 800;
   color: #0f172a;
 }
 
 .selected-size-chip {
-  margin-left: 6px;
   background: #ecfdf5;
   color: #047857;
   border: 1px solid #a7f3d0;
-  padding: 1px 6px;
+  padding: 1.5px 6px;
   border-radius: 12px;
-  font-size: 9.5px;
+  font-size: 10px;
   font-weight: 800;
+  display: inline-flex;
+  align-items: center;
 }
 
-.unselected-size-hint {
-  margin-left: 5px;
+.footwear-card-price.unselected {
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 6px;
+  padding: 4px 6px;
+  margin-bottom: 8px;
+  min-height: 28px;
+}
+
+.unselected-prompt-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tap-size-prompt-title {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #475569;
+}
+
+.price-range-tag {
   font-size: 9.5px;
-  color: #94a3b8;
+  font-weight: 700;
+  color: #c5a15c;
+  background: #fffdf5;
+  border: 1px solid #f0e4c3;
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.tax-hint {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: #64748b;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  padding: 1px 5px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.tax-hint.highlight-tax {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
 }
 
 .sizes-section {
@@ -1027,7 +1081,10 @@
   margin-top: auto;
 }
 
-.totals > div {
+.totals > .subtotal-row,
+.totals > .discount-input-row,
+.totals > .tax-row,
+.totals > .taxable-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1115,6 +1172,135 @@
   top: 2px;
   right: 3px;
   color: #f1d99d;
+}
+
+/* Split Payment Breakdown & Screen-Contained Input Fields (Issue 2) */
+.split-payment-card {
+  display: block !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin: 6px 0 10px;
+}
+
+.split-header {
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px !important;
+  width: 100%;
+}
+
+.split-title {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.split-status-badge {
+  font-size: 9.5px;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.split-status-badge.balanced {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.split-status-badge.unbalanced {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.split-inputs-grid {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  margin-bottom: 6px;
+}
+
+.split-field {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  min-width: 0 !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.split-field label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #475569;
+  margin-bottom: 3px;
+  white-space: nowrap;
+}
+
+.split-field input {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+  height: 32px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #101c35;
+  background: #ffffff;
+  outline: none;
+}
+
+.split-field input:focus {
+  border-color: #101c35;
+  box-shadow: 0 0 0 2px rgba(16, 28, 53, 0.1);
+}
+
+.split-presets-row {
+  display: flex !important;
+  gap: 6px;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.split-presets-row .btn-chip {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+  border-radius: 4px;
+  padding: 3px 4px;
+  font-size: 9.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: all 0.12s ease;
+}
+
+.split-presets-row .btn-chip:hover {
+  background: #101c35;
+  color: #ffffff;
+  border-color: #101c35;
 }
 
 .checkout-button {

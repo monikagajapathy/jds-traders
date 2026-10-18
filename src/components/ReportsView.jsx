@@ -506,9 +506,11 @@ export default function ReportsView() {
                       tickFormatter={(v) => `₹${v}`}
                     />
                     <Tooltip
-                      formatter={(val, name) => [
+                      formatter={(val, name, item) => [
                         formatINR(val),
-                        name === "revenue" ? "Revenue" : "Profit",
+                        item?.dataKey === "revenue" || name === "Revenue"
+                          ? "Revenue"
+                          : "Gross Profit",
                       ]}
                       contentStyle={{
                         backgroundColor: "#101c35",

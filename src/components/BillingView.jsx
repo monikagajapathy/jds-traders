@@ -608,9 +608,17 @@ export default function BillingView() {
                 const selectedVariantId = selectedSizes[prod.id];
                 const activeVariant =
                   prod.variants?.find((v) => v.id === selectedVariantId) || null;
-                const displayPrice = activeVariant
-                  ? activeVariant.selling_price
-                  : prod.variants[0]?.selling_price || 0;
+
+                const prices =
+                  prod.variants
+                    ?.map((v) => Number(v.selling_price) || 0)
+                    .filter((p) => p > 0) || [];
+                const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
+                const maxPrice = prices.length > 0 ? Math.max(...prices) : 0;
+                const activeTaxRate = activeVariant
+                  ? Number(activeVariant.tax_rate) ||
+                    (activeVariant.selling_price >= 1000 ? 12 : 5)
+                  : null;
 
                 return (
                   <div
@@ -630,26 +638,38 @@ export default function BillingView() {
                       {prod.category} • {prod.sub_category}
                     </div>
 
-                    {/* Dynamic Price Display for Selected Size (Issue 6) */}
-                    <div className="footwear-card-price">
-                      <div>
-                        <strong>{formatINR(displayPrice)}</strong>
-                        {activeVariant ? (
+                    {/* Dynamic Price & GST Display (No default price when unselected) */}
+                    {activeVariant ? (
+                      <div className="footwear-card-price has-selection">
+                        <div className="selected-price-info">
+                          <strong className="selected-price-val">
+                            {formatINR(activeVariant.selling_price)}
+                          </strong>
                           <span className="selected-size-chip">
                             ✓ Size {activeVariant.size}
                           </span>
-                        ) : (
-                          <span className="unselected-size-hint">
-                            (Base Size {prod.variants[0]?.size || "—"})
-                          </span>
-                        )}
+                        </div>
+                        <span className="tax-hint highlight-tax">
+                          GST: {activeTaxRate}%
+                        </span>
                       </div>
-                      <span className="tax-hint">
-                        GST: {prod.tax_rate ?? 5}%
-                      </span>
-                    </div>
+                    ) : (
+                      <div className="footwear-card-price unselected">
+                        <div className="unselected-prompt-wrap">
+                          <span className="tap-size-prompt-title">Tap size to view price</span>
+                          <span className="price-range-tag">
+                            {minPrice === maxPrice
+                              ? formatINR(minPrice)
+                              : `${formatINR(minPrice)} – ${formatINR(maxPrice)}`}
+                          </span>
+                        </div>
+                        <span className="tax-hint">
+                          GST: {minPrice < 1000 && maxPrice >= 1000 ? "5% / 12%" : (minPrice >= 1000 ? "12%" : "5%")}
+                        </span>
+                      </div>
+                    )}
 
-                    {/* Size Chips Section (Issue 6: Clicking same size deselects it) */}
+                    {/* Size Chips Section (Clicking same size deselects it) */}
                     <div className="sizes-section">
                       <div className="sizes-caption-row">
                         <span className="sizes-caption">
@@ -667,6 +687,8 @@ export default function BillingView() {
                           const inStock = (v.stock || 0) > 0;
                           const isCurrentSelected = selectedVariantId === v.id;
                           const inCartItem = cart.find((c) => c.variant_id === v.id);
+                          const variantGst =
+                            Number(v.tax_rate) || (v.selling_price >= 1000 ? 12 : 5);
 
                           return (
                             <button
@@ -677,7 +699,7 @@ export default function BillingView() {
                                 inCartItem ? "in-cart" : ""
                               } ${!inStock ? "out-of-stock" : ""}`}
                               onClick={() => handleSizeClick(v, prod)}
-                              title={`Size ${v.size} (${v.color}) - Stock: ${v.stock} pairs - Price: ₹${v.selling_price}`}
+                              title={`Size ${v.size} (${v.color}) • Stock: ${v.stock} pairs • ₹${v.selling_price} (GST: ${variantGst}%)`}
                             >
                               <span className="size-num">{v.size}</span>
                               <span className="size-stock">

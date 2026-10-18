@@ -186,7 +186,12 @@ export function StoreProvider({ children }) {
       const saved = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed.length >= initialProducts.length) {
+        // Verify if parsed products have the updated size-tiered variants (e.g. ART-110 size 6 is 899)
+        const p10 = parsed.find((p) => p.article_no === "ART-110");
+        const hasTieredPrices =
+          p10 &&
+          p10.variants?.some((v) => String(v.size) === "6" && Number(v.selling_price) === 899);
+        if (hasTieredPrices && parsed.length >= initialProducts.length) {
           return parsed;
         }
       }
@@ -590,7 +595,15 @@ export function StoreProvider({ children }) {
         );
       }
       const price = Number(variant.selling_price) || 0;
-      const itemTaxRate = Number(product.tax_rate ?? settings.default_tax_rate ?? 5);
+      const itemTaxRate = Number(
+        variant.tax_rate !== undefined
+          ? variant.tax_rate
+          : product.tax_rate !== undefined
+          ? product.tax_rate
+          : price >= 1000
+          ? 12
+          : 5
+      );
       const hsn = product.hsn_code || (price >= 1000 ? "6403" : "6404");
       return [
         ...prev,
