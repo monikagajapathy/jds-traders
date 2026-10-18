@@ -134,24 +134,16 @@ export default function ReceiptModal() {
             <img src="/logo.png" alt="" />
           </div>
 
-          {/* Statement Header */}
+          {/* Statement Header - Centered Logo and Details (as drawn) */}
           <div className="statement-header-top">
-            <div className="statement-brand-left">
+            <div className="statement-brand-centered">
               <img src="/logo.png" alt="JDS Traders Logo" className="statement-logo-img" />
-              <div>
-                <h1 className="statement-shop-title">{settings.shop_name}</h1>
-                <div className="statement-tagline">{settings.tagline}</div>
-                <div className="statement-shop-address">{settings.address}</div>
-                <div className="statement-shop-contact">
-                  <strong>Phone:</strong> {settings.phone} | <strong>Email:</strong> {settings.email}
-                </div>
+              <h1 className="statement-shop-title">{settings.shop_name}</h1>
+              <div className="statement-tagline">{settings.tagline}</div>
+              <div className="statement-shop-address">{settings.address}</div>
+              <div className="statement-shop-contact">
+                <strong>Phone:</strong> {settings.phone} | <strong>Email:</strong> {settings.email}
               </div>
-            </div>
-
-            <div className="statement-gst-badge-box">
-              <div className="gst-badge-title">GST REGISTERED ENTITY</div>
-              <div className="gst-number-display">{settings.gstin}</div>
-              <div className="gst-state-sub">State: 33 - Tamil Nadu</div>
             </div>
           </div>
 

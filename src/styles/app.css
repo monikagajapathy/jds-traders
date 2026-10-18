@@ -2481,59 +2481,73 @@
 
 .statement-header-top {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  padding-bottom: 16px;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding-bottom: 14px;
   border-bottom: 2px solid #1e293b;
-  gap: 20px;
   position: relative;
   z-index: 1;
 }
 
+.statement-brand-centered,
 .statement-brand-left {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 16px;
+  text-align: center;
+  gap: 3px;
+  width: 100%;
 }
 
 .statement-logo-img {
-  width: 68px;
-  height: 68px;
+  width: 66px;
+  height: 66px;
   border-radius: 50%;
   border: 2px solid #c5a15c;
   object-fit: cover;
   background: #fff;
+  margin: 0 auto 6px auto;
+  display: block;
+  box-shadow: 0 2px 8px rgba(197, 161, 92, 0.25);
 }
 
 .statement-shop-title {
   margin: 0;
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 800;
   color: #101c35;
   letter-spacing: -0.5px;
+  text-align: center;
+  line-height: 1.2;
 }
 
 .statement-tagline {
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 700;
   color: #c5a15c;
-  letter-spacing: 1.5px;
+  letter-spacing: 2px;
   text-transform: uppercase;
   margin-top: 2px;
+  text-align: center;
 }
 
 .statement-shop-address {
   font-size: 11px;
   color: #475569;
   margin-top: 4px;
-  max-width: 380px;
-  line-height: 1.4;
+  max-width: 440px;
+  line-height: 1.45;
+  text-align: center;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .statement-shop-contact {
   font-size: 10.5px;
   color: #64748b;
   margin-top: 3px;
+  text-align: center;
 }
 
 .statement-gst-badge-box {
@@ -3017,14 +3031,30 @@
 
   /* Compact spacing so the entire invoice fits cleanly on 1 sheet */
   .statement-header-top {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
     padding-bottom: 6px !important;
     border-bottom: 1.5px solid #000 !important;
-    gap: 10px !important;
+    gap: 2px !important;
+  }
+
+  .statement-brand-centered,
+  .statement-brand-left {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+    gap: 2px !important;
+    width: 100% !important;
   }
 
   .statement-logo-img {
     width: 44px !important;
     height: 44px !important;
+    margin: 0 auto 3px auto !important;
+    display: block !important;
   }
 
   .statement-shop-title {
