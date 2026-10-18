@@ -218,21 +218,18 @@ export default function ReceiptModal() {
             </div>
           </div>
 
-          {/* Itemized Footwear Statement Table with Product-wise GST (Issue 10) */}
+          {/* Itemized Footwear Statement Table with Product-wise GST */}
           <div className="statement-table-wrapper">
             <table className="statement-items-table">
               <thead>
                 <tr>
-                  <th style={{ width: "28px", textAlign: "center" }}>#</th>
-                  <th>Description of Footwear Goods</th>
-                  <th style={{ textAlign: "center" }}>HSN</th>
-                  <th style={{ textAlign: "center" }}>Size</th>
-                  <th style={{ textAlign: "center" }}>Qty</th>
-                  <th style={{ textAlign: "right" }}>Rate (₹)</th>
-                  <th style={{ textAlign: "right" }}>Taxable (₹)</th>
-                  <th style={{ textAlign: "center" }}>GST %</th>
-                  <th style={{ textAlign: "right" }}>GST Amt (₹)</th>
-                  <th style={{ textAlign: "right" }}>Total (₹)</th>
+                  <th style={{ width: "24px", textAlign: "center" }}>#</th>
+                  <th>Description of Goods</th>
+                  <th style={{ textAlign: "center", width: "42px" }}>Size</th>
+                  <th style={{ textAlign: "center", width: "36px" }}>Qty</th>
+                  <th style={{ textAlign: "right", width: "70px" }}>Rate (₹)</th>
+                  <th style={{ textAlign: "center", width: "50px" }}>GST</th>
+                  <th style={{ textAlign: "right", width: "75px" }}>Total (₹)</th>
                 </tr>
               </thead>
               <tbody>
@@ -255,22 +252,17 @@ export default function ReceiptModal() {
                       <td>
                         <strong>{item.product_name}</strong>
                         <div className="statement-sub-desc">
-                          Brand: {item.brand} | Art: {item.article_no} | Color: {item.color}
+                          Art: {item.article_no} | {item.brand} | HSN: {item.hsn_code || "6403"}
                         </div>
-                      </td>
-                      <td style={{ textAlign: "center", fontFamily: "monospace" }}>
-                        {item.hsn_code || "6403"}
                       </td>
                       <td style={{ textAlign: "center" }}>
                         <span className="statement-size-pill">{item.size}</span>
                       </td>
                       <td style={{ textAlign: "center", fontWeight: 700 }}>{itemQty}</td>
                       <td style={{ textAlign: "right" }}>{formatINR(itemRate)}</td>
-                      <td style={{ textAlign: "right" }}>{formatINR(itemTaxable)}</td>
                       <td style={{ textAlign: "center" }}>
                         <span className="statement-gst-rate-tag">{gstPct}%</span>
                       </td>
-                      <td style={{ textAlign: "right" }}>{formatINR(itemTax)}</td>
                       <td style={{ textAlign: "right", fontWeight: 700 }}>
                         {formatINR(lineTotal)}
                       </td>
@@ -281,16 +273,8 @@ export default function ReceiptModal() {
             </table>
           </div>
 
-          {/* Bottom Statement Section: GST Summary Box + Invoice Totals */}
-          <div className="statement-bottom-grid">
-            {/* Left: Invoice Amount in Words (GST breakup table removed as requested) */}
-            <div className="statement-words-card">
-              <span className="words-caption">INVOICE AMOUNT IN WORDS</span>
-              <div className="words-text">{numberToWordsINR(grandTotal)}</div>
-              <div className="words-subnote">Official retail footwear tax invoice memo.</div>
-            </div>
-
-            {/* Right: Net Financial Totals */}
+          {/* Bottom Statement Section: Net Financial Totals */}
+          <div className="statement-bottom-section">
             <div className="statement-financial-totals-box">
               <div className="stat-tot-row">
                 <span className="tot-lbl">Total Items / Pairs:</span>
@@ -322,6 +306,12 @@ export default function ReceiptModal() {
                 <div className="stat-total-val">{formatINR(grandTotal)}</div>
               </div>
 
+              {/* Rupees in Words directly below Total */}
+              <div className="stat-words-below-total">
+                <span className="stat-words-lbl">Invoice Amount in Words:</span>
+                <div className="stat-words-val">{numberToWordsINR(grandTotal)}</div>
+              </div>
+
               {/* Split Payment Breakdown */}
               {recentInvoice.payment_method === "Split" && recentInvoice.payment_split && (
                 <div className="stat-split-card">
@@ -343,9 +333,6 @@ export default function ReceiptModal() {
             <div className="statement-terms-box">
               <strong>Terms & Conditions / Return Policy:</strong>
               <p>{settings.footer_note}</p>
-              <div className="statement-jurisdiction">
-                Subject to Salem, Tamil Nadu jurisdiction. Goods once sold can be exchanged within 7 days in unworn condition.
-              </div>
             </div>
 
             <div className="statement-signatory-box">

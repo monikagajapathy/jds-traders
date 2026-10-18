@@ -2462,17 +2462,18 @@
 }
 
 .statement-modal {
-  max-width: 860px !important;
+  max-width: 540px !important;
   width: 95% !important;
   background: #f8fafc;
+  margin: 0 auto;
 }
 
 .statement-document {
   position: relative;
   background: #ffffff;
-  padding: 30px 34px;
+  padding: 22px 24px;
   border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   color: #1e293b;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   overflow: hidden;
@@ -2699,85 +2700,13 @@
   color: #15803d;
 }
 
-/* Statement Bottom Grid: 2-column layout (Left: GST statement & words; Right: Totals) */
-.statement-bottom-grid {
-  display: grid;
-  grid-template-columns: 1.15fr 1fr;
-  gap: 18px;
-  align-items: flex-start;
-  margin-bottom: 18px;
+/* Bottom Statement Section */
+.statement-bottom-section {
+  margin-bottom: 14px;
   position: relative;
   z-index: 1;
 }
 
-.statement-gst-breakup-box {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  padding: 12px 14px;
-}
-
-.gst-breakup-title {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 10.5px;
-  font-weight: 800;
-  color: #334155;
-  letter-spacing: 0.5px;
-  margin-bottom: 8px;
-  text-transform: uppercase;
-}
-
-.statement-gst-subtable {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 10px;
-}
-
-.statement-gst-subtable th {
-  background: #f1f5f9;
-  color: #475569;
-  font-weight: 700;
-  padding: 5px 6px;
-  border-bottom: 1.5px solid #cbd5e1;
-}
-
-.statement-gst-subtable td {
-  padding: 4px 6px;
-  border-bottom: 1px solid #e2e8f0;
-  color: #1e293b;
-}
-
-.gst-subtable-total-row td {
-  border-top: 1.5px solid #cbd5e1;
-  border-bottom: none;
-  padding-top: 6px;
-  font-weight: 800;
-  color: #0f172a;
-}
-
-.statement-amount-words {
-  margin-top: 10px;
-  padding-top: 8px;
-  border-top: 1px dashed #cbd5e1;
-  font-size: 10px;
-  line-height: 1.4;
-}
-
-.statement-amount-words .words-caption {
-  font-weight: 700;
-  color: #64748b;
-  display: inline;
-}
-
-.statement-amount-words .words-text {
-  font-weight: 700;
-  color: #0f172a;
-  display: inline;
-}
-
-/* Right Financial Totals Box */
 .statement-financial-totals-box {
   background: #ffffff;
   border: 1px solid #e2e8f0;
@@ -2785,7 +2714,84 @@
   padding: 12px 14px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
+}
+
+.stat-tot-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  padding: 2px 0;
+}
+
+.stat-tot-row .tot-lbl {
+  color: #64748b;
+  font-weight: 500;
+}
+
+.stat-tot-row .tot-val {
+  color: #0f172a;
+  font-weight: 600;
+  text-align: right;
+}
+
+.stat-tot-row.discount .tot-lbl,
+.stat-tot-row.discount .tot-val {
+  color: #16a34a;
+  font-weight: 700;
+}
+
+.stat-grand-total-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 6px;
+  padding: 8px 10px;
+  background: #101c35;
+  border-radius: 6px;
+  color: #ffffff;
+}
+
+.stat-grand-total-row .stat-total-label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  color: #cbd5e1;
+}
+
+.stat-grand-total-row .stat-total-val {
+  font-size: 16px;
+  font-weight: 900;
+  color: #c5a15c;
+  letter-spacing: -0.3px;
+}
+
+/* Rupees in Words directly below Total */
+.stat-words-below-total {
+  margin-top: 6px;
+  padding: 8px 10px;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 6px;
+  font-size: 10.5px;
+  line-height: 1.4;
+}
+
+.stat-words-below-total .stat-words-lbl {
+  display: block;
+  font-size: 9px;
+  font-weight: 800;
+  color: #64748b;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+
+.stat-words-below-total .stat-words-val {
+  font-size: 11px;
+  font-weight: 800;
+  color: #0f172a;
 }
 
 .stat-tot-row {
@@ -2929,38 +2935,7 @@
   text-align: center;
 }
 
-/* Statement Words Card (replacing bulky GST breakup table) */
-.statement-words-card {
-  background: #f8fafc;
-  border: 1px dashed #cbd5e1;
-  border-radius: 6px;
-  padding: 12px 14px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
 
-.statement-words-card .words-caption {
-  font-size: 9.5px;
-  font-weight: 800;
-  color: #64748b;
-  letter-spacing: 0.6px;
-  margin-bottom: 4px;
-}
-
-.statement-words-card .words-text {
-  font-size: 11.5px;
-  font-weight: 700;
-  color: #0f172a;
-  line-height: 1.4;
-}
-
-.statement-words-card .words-subnote {
-  font-size: 9.5px;
-  color: #94a3b8;
-  margin-top: 4px;
-  font-style: italic;
-}
 
 /* ==========================================================================
    PRINT STYLES (Single Sheet / Clean Retail Invoice Fit)
