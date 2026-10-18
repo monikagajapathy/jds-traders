@@ -32,13 +32,14 @@
 .brand strong { display: block; font: 700 15px "Playfair Display", Georgia, serif; letter-spacing: .2px; }
 .brand span { display: block; color: #b8c1d2; font-size: 8px; letter-spacing: 1.3px; margin-top: 3px; }
 
-/* Software-wide subtle watermark */
+/* Software-wide subtle watermark - strictly centered (Issue 7) */
 .software-watermark {
   position: fixed;
-  right: 5%;
-  bottom: 8%;
-  width: min(520px, 42vw);
-  height: min(520px, 42vw);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(520px, 46vw);
+  height: min(520px, 46vw);
   pointer-events: none;
   z-index: 0;
   opacity: 0.038;
@@ -1288,4 +1289,774 @@
 .login-demo-hint strong {
   color: #f1d99d;
 }
+
+/* ==========================================================================
+   STATEMENT TAX INVOICE & CENTERED WATERMARK (Issues 7 & 10)
+   ========================================================================== */
+.receipt-watermark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(340px, 60%);
+  height: min(340px, 60%);
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.055;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.receipt-watermark img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 50%;
+}
+
+.statement-modal {
+  max-width: 860px !important;
+  width: 95% !important;
+  background: #f8fafc;
+}
+
+.statement-document {
+  position: relative;
+  background: #ffffff;
+  padding: 30px 34px;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+  color: #1e293b;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  overflow: hidden;
+}
+
+.statement-header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding-bottom: 16px;
+  border-bottom: 2px solid #1e293b;
+  gap: 20px;
+  position: relative;
+  z-index: 1;
+}
+
+.statement-brand-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.statement-logo-img {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  border: 2px solid #c5a15c;
+  object-fit: cover;
+  background: #fff;
+}
+
+.statement-shop-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+  color: #101c35;
+  letter-spacing: -0.5px;
+}
+
+.statement-tagline {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #c5a15c;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+
+.statement-shop-address {
+  font-size: 11px;
+  color: #475569;
+  margin-top: 4px;
+  max-width: 380px;
+  line-height: 1.4;
+}
+
+.statement-shop-contact {
+  font-size: 10.5px;
+  color: #64748b;
+  margin-top: 3px;
+}
+
+.statement-gst-badge-box {
+  text-align: right;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 14px;
+  min-width: 200px;
+}
+
+.gst-badge-title {
+  font-size: 9px;
+  font-weight: 800;
+  color: #64748b;
+  letter-spacing: 0.8px;
+}
+
+.gst-number-display {
+  font-family: monospace;
+  font-size: 13px;
+  font-weight: 800;
+  color: #1e293b;
+  letter-spacing: 0.5px;
+  margin: 3px 0;
+}
+
+.gst-state-sub {
+  font-size: 10px;
+  color: #059669;
+  font-weight: 600;
+}
+
+.statement-title-banner {
+  text-align: center;
+  background: #101c35;
+  color: #ffffff;
+  padding: 6px 12px;
+  margin: 14px 0;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  position: relative;
+  z-index: 1;
+}
+
+.statement-meta-two-column {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+  position: relative;
+  z-index: 1;
+}
+
+.statement-meta-box {
+  background: #fbfcfe;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 12px 14px;
+}
+
+.meta-box-header {
+  font-size: 9.5px;
+  font-weight: 800;
+  color: #64748b;
+  letter-spacing: 0.8px;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 6px;
+  margin-bottom: 8px;
+}
+
+.meta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11.5px;
+  margin-bottom: 4px;
+}
+
+.meta-row .m-label {
+  color: #64748b;
+  font-size: 11px;
+}
+
+.meta-row .m-val {
+  color: #1e293b;
+}
+
+.meta-row .m-val.highlight {
+  font-family: monospace;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.meta-row .payment-chip {
+  background: #e0f2fe;
+  color: #0284c7;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.statement-table-wrapper {
+  margin-bottom: 16px;
+  position: relative;
+  z-index: 1;
+}
+
+.statement-items-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.statement-items-table th {
+  background: #f1f5f9;
+  color: #334155;
+  font-weight: 700;
+  padding: 7px 6px;
+  border-top: 1px solid #cbd5e1;
+  border-bottom: 1px solid #cbd5e1;
+  font-size: 10px;
+}
+
+.statement-items-table td {
+  padding: 7px 6px;
+  border-bottom: 1px solid #e2e8f0;
+  vertical-align: middle;
+}
+
+.statement-item-name {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.statement-item-sub {
+  font-size: 9.5px;
+  color: #64748b;
+}
+
+.gst-badge-pill {
+  display: inline-block;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 9.5px;
+  font-weight: 600;
+}
+
+.statement-gst-breakup-box {
+  margin-bottom: 16px;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 6px;
+  padding: 10px 14px;
+  position: relative;
+  z-index: 1;
+}
+
+.gst-breakup-title {
+  font-size: 10px;
+  font-weight: 800;
+  color: #475569;
+  letter-spacing: 0.8px;
+  margin-bottom: 6px;
+}
+
+.gst-breakup-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10.5px;
+}
+
+.gst-breakup-table th {
+  background: #edf2f7;
+  color: #475569;
+  font-weight: 700;
+  padding: 5px;
+  border-bottom: 1px solid #cbd5e1;
+}
+
+.gst-breakup-table td {
+  padding: 5px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.statement-summary-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 20px;
+  align-items: flex-start;
+  margin-bottom: 16px;
+  padding-top: 8px;
+  border-top: 1px solid #e2e8f0;
+  position: relative;
+  z-index: 1;
+}
+
+.statement-words-box {
+  background: #fbfcfe;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+
+.words-label {
+  font-size: 9.5px;
+  font-weight: 800;
+  color: #64748b;
+  letter-spacing: 0.5px;
+  margin-bottom: 3px;
+}
+
+.words-value {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #1e293b;
+  line-height: 1.4;
+}
+
+.statement-terms-small {
+  margin-top: 8px;
+  font-size: 9.5px;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.statement-totals-table {
+  width: 100%;
+  font-size: 11.5px;
+}
+
+.statement-totals-table tr td {
+  padding: 3px 0;
+}
+
+.statement-totals-table tr.grand-total-row td {
+  padding-top: 8px;
+  border-top: 2px solid #1e293b;
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.statement-sign-block {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
+  position: relative;
+  z-index: 1;
+}
+
+.statement-thanks {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.sign-box {
+  text-align: center;
+  min-width: 180px;
+}
+
+.sign-title {
+  font-size: 10px;
+  font-weight: 800;
+  color: #64748b;
+  letter-spacing: 0.5px;
+}
+
+.sign-line {
+  margin-top: 36px;
+  border-top: 1px solid #1e293b;
+  font-size: 10px;
+  color: #475569;
+  padding-top: 4px;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .printable-receipt, .printable-receipt * {
+    visibility: visible;
+  }
+  .printable-receipt {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    box-shadow: none;
+    border: none;
+    padding: 16px 20px;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .receipt-watermark {
+    display: flex !important;
+    opacity: 0.07 !important;
+  }
+}
+
+/* ==========================================================================
+   BILLING VIEW CONTROLS & BARCODE SCANNER (Issues 1, 2, 3, 4, 6, 8)
+   ========================================================================== */
+.catalogue-filter-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.filter-pills-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.filter-pill-btn {
+  padding: 5px 12px;
+  border-radius: 20px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.filter-pill-btn:hover {
+  background: #edf2f7;
+  color: #1e293b;
+}
+
+.filter-pill-btn.active {
+  background: #101c35;
+  color: #ffffff;
+  border-color: #101c35;
+}
+
+.filter-dropdowns-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.filter-dropdown-compact {
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+  font-size: 11px;
+  outline: none;
+}
+
+.btn-filter-reset {
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px dashed #cbd5e1;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 10.5px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-filter-reset:hover {
+  background: #fee2e2;
+  color: #dc2626;
+  border-color: #fca5a5;
+}
+
+.search-and-scan-strip {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.barcode-scan-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 0 10px;
+  min-width: 220px;
+}
+
+.barcode-scan-input-wrap:focus-within {
+  border-color: #c5a15c;
+  box-shadow: 0 0 0 2px rgba(197, 161, 92, 0.2);
+}
+
+.barcode-input-field {
+  border: 0;
+  outline: none;
+  font-size: 12px;
+  padding: 8px 0;
+  width: 100%;
+}
+
+.btn-barcode-dir {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 0 8px;
+  height: 28px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.barcode-scan-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #065f46;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 11px;
+  margin-bottom: 12px;
+}
+
+.barcode-scan-banner strong {
+  color: #047857;
+}
+
+.btn-view-barcodes {
+  background: #ffffff;
+  border: 1px solid #6ee7b7;
+  color: #047857;
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Card Size-Selected Dynamic Price Display (Issue 6) */
+.selected-size-price-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #ecfdf5;
+  border: 1px solid #6ee7b7;
+  color: #047857;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.size-pill-button.active-size-selected {
+  background: #101c35 !important;
+  color: #f1d99d !important;
+  border-color: #c5a15c !important;
+  box-shadow: 0 2px 6px rgba(16, 28, 53, 0.25);
+  transform: scale(1.05);
+}
+
+/* Customer Details Optional/Required Toggle (Issue 2) */
+.pos-customer-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+
+.customer-phone-required-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+}
+
+.customer-phone-required-pill.active {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #dc2626;
+}
+
+/* Cart Item-Wise Custom GST Control (Issue 3) */
+.cart-item-gst-control {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10.5px;
+  color: #64748b;
+  margin-top: 3px;
+}
+
+.gst-control-select {
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  padding: 1px 4px;
+  font-size: 10px;
+  background: #ffffff;
+  color: #1e293b;
+  outline: none;
+}
+
+/* ==========================================================================
+   INVENTORY VIEW: LOW-STOCK CONTROLS & PRODUCT EDIT (Issues 5 & 9)
+   ========================================================================== */
+.warning-card {
+  border: 1px solid #fca5a5 !important;
+  background: #fef2f2 !important;
+}
+
+.kpi-threshold-toggle {
+  display: flex;
+  gap: 3px;
+  background: #f1f5f9;
+  padding: 2px;
+  border-radius: 6px;
+}
+
+.threshold-btn {
+  border: 0;
+  background: transparent;
+  padding: 2px 6px;
+  font-size: 9.5px;
+  font-weight: 700;
+  color: #64748b;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.threshold-btn.active {
+  background: #ffffff;
+  color: #dc2626;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.threshold-selector-pill {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 3px 6px;
+  height: 38px;
+}
+
+.threshold-selector-pill .pill-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.threshold-selector-pill .pill-opt {
+  border: 0;
+  background: transparent;
+  padding: 3px 8px;
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+
+.threshold-selector-pill .pill-opt.selected {
+  background: #101c35;
+  color: #ffffff;
+}
+
+.threshold-info-strip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  font-size: 11px;
+  color: #64748b;
+  background: #f8fafc;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid #f1f5f9;
+}
+
+.threshold-info-strip .info-icon {
+  font-weight: 800;
+  color: #3b82f6;
+}
+
+.row-low-stock-alert {
+  background-color: #fffbfb !important;
+}
+
+.low-stock-badge-dot {
+  background: #fee2e2;
+  color: #dc2626;
+  border: 1px solid #fca5a5;
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
+
+.s-dot-alert {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #dc2626;
+  margin-left: 2px;
+}
+
+.table-input {
+  width: 100%;
+  padding: 5px 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 5px;
+  font-size: 12px;
+  outline: none;
+}
+
+.table-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+
+.table-input.highlight-price {
+  background: #fffdf5;
+  border-color: #f1d99d;
+}
+
+.product-edit-modal {
+  max-width: 860px !important;
+}
+
+.form-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
 

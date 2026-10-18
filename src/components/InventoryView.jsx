@@ -15,6 +15,11 @@ import {
   TrendingUp,
   History,
   ShieldCheck,
+  Edit2,
+  AlertTriangle,
+  Barcode,
+  Layers,
+  Sparkles,
 } from "lucide-react";
 import { useStore } from "../context/StoreContext.jsx";
 import { formatINR } from "../utils/calculations.js";
@@ -23,6 +28,7 @@ export default function InventoryView() {
   const {
     products,
     addProduct,
+    updateProduct,
     deleteProduct,
     adjustStock,
     bulkAdjustStock,
@@ -38,6 +44,11 @@ export default function InventoryView() {
   const [selectedCat, setSelectedCat] = useState("All");
   const [stockFilter, setStockFilter] = useState("All");
   const [isAuditOpen, setIsAuditOpen] = useState(false);
+
+  // Low-Stock Threshold Configuration (Issue 5)
+  // Clarification: 3 pairs applies per individual size (Retail mode), while 30 pairs applies to total article carton stock (Wholesale mode)
+  const [lowStockThreshold, setLowStockThreshold] = useState(3);
+  const [thresholdMode, setThresholdMode] = useState("per-size"); // 'per-size' | 'total'
 
   useEffect(() => {
     if (targetInventoryFilter) {
@@ -76,6 +87,10 @@ export default function InventoryView() {
   const [adjustReason, setAdjustReason] = useState("Restock Delivery");
   const [adjustNote, setAdjustNote] = useState("");
 
+  // Edit Product Modal State (Issue 9)
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editingProd, setEditingProd] = useState(null);
+
   // Add new size state
   const [isAddSizeOpen, setIsAddSizeOpen] = useState(false);
   const [sizeTargetProduct, setSizeTargetProduct] = useState(null);
@@ -92,16 +107,122 @@ export default function InventoryView() {
   const handleOpenAddSize = (prod) => {
     setSizeTargetProduct(prod);
     const firstVar = prod.variants[0];
+    const cleanArt = prod.article_no.replace(/[^A-Z0-9]/gi, "").slice(-3).padStart(3, "0");
+    const nextSize = String(prod.variants.length + 6);
+    const cleanSize = nextSize.padStart(2, "0");
+    const randomCode = Math.floor(1000 + Math.random() * 9000);
+
     setNewSizeForm({
-      size: "",
+      size: nextSize,
       color: firstVar?.color || "Standard",
       cost_price: firstVar?.cost_price || 600,
       selling_price: firstVar?.selling_price || 1199,
       stock: 6,
-      barcode: `890${Math.floor(100000000 + Math.random() * 900000000)}`,
+      barcode: `890${cleanArt}${cleanSize}${randomCode}`,
       reorder_level: 3,
     });
     setIsAddSizeOpen(true);
+  };
+
+  const handleSaveAddSize = (e) => {
+    e.preventDefault();
+    if (!sizeTargetProduct) return;
+    if (!newSizeForm.size.trim()) {
+      alert("Please enter a valid shoe size.");
+      return;
+    }
+
+    addVariantToProduct(sizeTargetProduct.id, {
+      size: newSizeForm.size.trim(),
+      color: newSizeForm.color || "Standard",
+      cost_price: Number(newSizeForm.cost_price) || 0,
+      selling_price: Number(newSizeForm.selling_price) || 0,
+      stock: Math.max(0, Number(newSizeForm.stock) || 0),
+      barcode: newSizeForm.barcode?.trim() || `890${Math.floor(100000000 + Math.random() * 900000000)}`,
+      reorder_level: Number(newSizeForm.reorder_level) || 3,
+    });
+
+    setIsAddSizeOpen(false);
+    setSizeTargetProduct(null);
+  };
+
+  // Open Edit Product Modal (Issue 9)
+  const handleOpenEditProduct = (prod) => {
+    setEditingProd({
+      id: prod.id,
+      name: prod.name || "",
+      article_no: prod.article_no || "",
+      brand: prod.brand || "JD Signature",
+      category: prod.category || "Gents",
+      sub_category: prod.sub_category || "Casual",
+      tax_rate: prod.tax_rate ?? 12,
+      variants: prod.variants.map((v) => ({
+        id: v.id,
+        size: v.size,
+        color: v.color || "Standard",
+        cost_price: v.cost_price || 0,
+        selling_price: v.selling_price || 0,
+        stock: v.stock || 0,
+        barcode: v.barcode || "",
+        sku: v.sku || `JDS-${prod.article_no}-${v.size}`,
+        reorder_level: v.reorder_level || 3,
+      })),
+    });
+    setIsEditOpen(true);
+  };
+
+  const handleSaveEditProduct = (e) => {
+    e.preventDefault();
+    if (!editingProd) return;
+    if (!editingProd.name.trim() || !editingProd.article_no.trim()) {
+      alert("Please provide both Article Code and Product Name.");
+      return;
+    }
+    updateProduct(editingProd.id, editingProd);
+    setIsEditOpen(false);
+    setEditingProd(null);
+  };
+
+  const handleAddVariantToEditing = () => {
+    if (!editingProd) return;
+    const cleanArt = editingProd.article_no.replace(/[^A-Z0-9]/gi, "").slice(-3).padStart(3, "0");
+    const nextSizeNum = editingProd.variants.length + 6;
+    const nextSize = String(nextSizeNum);
+    const cleanSize = nextSize.padStart(2, "0");
+    const randomCode = Math.floor(1000 + Math.random() * 9000);
+    const newV = {
+      id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `var-${Date.now()}`,
+      size: nextSize,
+      color: editingProd.variants[0]?.color || "Standard",
+      cost_price: editingProd.variants[0]?.cost_price || 600,
+      selling_price: editingProd.variants[0]?.selling_price || 1199,
+      stock: 6,
+      barcode: `890${cleanArt}${cleanSize}${randomCode}`,
+      sku: `JDS-${editingProd.article_no}-${nextSize}`,
+      reorder_level: 3,
+    };
+    setEditingProd({
+      ...editingProd,
+      variants: [...editingProd.variants, newV],
+    });
+  };
+
+  const handleRemoveVariantFromEditing = (index) => {
+    if (!editingProd || editingProd.variants.length <= 1) {
+      alert("At least one size variant must remain.");
+      return;
+    }
+    setEditingProd({
+      ...editingProd,
+      variants: editingProd.variants.filter((_, idx) => idx !== index),
+    });
+  };
+
+  const handleEditingVariantChange = (index, field, value) => {
+    if (!editingProd) return;
+    const updated = [...editingProd.variants];
+    updated[index] = { ...updated[index], [field]: value };
+    setEditingProd({ ...editingProd, variants: updated });
   };
 
   // New product form state
@@ -109,7 +230,7 @@ export default function InventoryView() {
     article_no: "",
     name: "",
     brand: "JD Signature",
-    category: "Men",
+    category: "Gents",
     sub_category: "Casual",
     tax_rate: 12,
     variants: [
@@ -121,7 +242,7 @@ export default function InventoryView() {
     ],
   });
 
-  // Calculate high-level inventory totals
+  // Calculate high-level inventory totals (Issue 5: low-stock detection)
   const stats = useMemo(() => {
     let totalPairs = 0;
     let totalCostVal = 0;
@@ -129,21 +250,31 @@ export default function InventoryView() {
     let lowStockCount = 0;
 
     products.forEach((p) => {
+      const prodTotalStock = p.variants.reduce((s, v) => s + (v.stock || 0), 0);
+      let isProductLow = false;
+
+      if (thresholdMode === "per-size") {
+        isProductLow = p.variants.some((v) => (v.stock || 0) <= lowStockThreshold);
+      } else {
+        isProductLow = prodTotalStock <= lowStockThreshold;
+      }
+
+      if (isProductLow) {
+        lowStockCount++;
+      }
+
       p.variants.forEach((v) => {
         const qty = v.stock || 0;
         totalPairs += qty;
         totalCostVal += qty * (v.cost_price || 0);
         totalRetailVal += qty * (v.selling_price || 0);
-        if (qty <= (v.reorder_level || 3)) {
-          lowStockCount++;
-        }
       });
     });
 
     return { totalPairs, totalCostVal, totalRetailVal, lowStockCount };
-  }, [products]);
+  }, [products, lowStockThreshold, thresholdMode]);
 
-  // Filtered Products
+  // Filtered Products (Issue 1 & 5)
   const filteredProducts = useMemo(() => {
     return products.filter((prod) => {
       // Category filter (flexible matching for Gents/Men, Ladies/Women, Boys/Kids, Girls)
@@ -152,17 +283,21 @@ export default function InventoryView() {
         const sc = selectedCat.toLowerCase();
         const match =
           c === sc ||
-          (sc === "gents" && (c.includes("men") || c === "gents")) ||
-          (sc === "ladies" && (c.includes("women") || c === "ladies")) ||
+          (sc === "gents" && (c.includes("gent") || c.includes("men"))) ||
+          (sc === "ladies" && (c.includes("lad") || c.includes("women"))) ||
           (sc === "boys" && (c.includes("boy") || c.includes("kid"))) ||
           (sc === "girls" && (c.includes("girl") || c.includes("kid")));
         if (!match) return false;
       }
 
-      // Stock status filter
+      // Stock status filter (Issue 5: respects 3 vs 30 threshold and per-size vs total mode)
       const totalStock = prod.variants.reduce((s, v) => s + (v.stock || 0), 0);
-      if (stockFilter === "Low" && !prod.variants.some((v) => (v.stock || 0) <= (v.reorder_level || 3))) {
-        return false;
+      if (stockFilter === "Low") {
+        const isLow =
+          thresholdMode === "per-size"
+            ? prod.variants.some((v) => (v.stock || 0) <= lowStockThreshold)
+            : totalStock <= lowStockThreshold;
+        if (!isLow) return false;
       }
       if (stockFilter === "Out" && totalStock > 0) return false;
       if (stockFilter === "In" && totalStock === 0) return false;
@@ -179,7 +314,7 @@ export default function InventoryView() {
         )
       );
     });
-  }, [products, selectedCat, stockFilter, query]);
+  }, [products, selectedCat, stockFilter, query, lowStockThreshold, thresholdMode]);
 
   // Open Multi-Size Adjust Modal for a product (all sizes available to adjust at once)
   const handleOpenAdjust = (prod) => {
@@ -310,16 +445,61 @@ export default function InventoryView() {
           </div>
         </div>
 
+        {/* Issue 5: Low-Stock Warning KPI with Threshold Mode Toggle */}
+        <div className={`metric-card ${stats.lowStockCount > 0 ? "warning-card" : ""}`}>
+          <div className="metric-header">
+            <span className="metric-title">Low Stock Alert</span>
+            <div className="metric-icon-wrap red">
+              <AlertTriangle size={18} />
+            </div>
+          </div>
+          <div className="metric-value" style={{ color: stats.lowStockCount > 0 ? "#dc2626" : "#16a34a" }}>
+            {stats.lowStockCount}
+            <span style={{ fontSize: "12px", color: "#64748b", fontWeight: 500, marginLeft: "6px" }}>
+              models low
+            </span>
+          </div>
+          <div className="metric-footer" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: "10.5px" }}>
+              {thresholdMode === "per-size" ? `≤ ${lowStockThreshold} pairs/size` : `≤ ${lowStockThreshold} pairs total`}
+            </span>
+            <div className="kpi-threshold-toggle">
+              <button
+                type="button"
+                className={`threshold-btn ${lowStockThreshold === 3 && thresholdMode === "per-size" ? "active" : ""}`}
+                onClick={() => {
+                  setLowStockThreshold(3);
+                  setThresholdMode("per-size");
+                }}
+                title="Retail reorder threshold: 3 pairs per shoe size"
+              >
+                3 Retail
+              </button>
+              <button
+                type="button"
+                className={`threshold-btn ${lowStockThreshold === 30 && thresholdMode === "total" ? "active" : ""}`}
+                onClick={() => {
+                  setLowStockThreshold(30);
+                  setThresholdMode("total");
+                }}
+                title="Wholesale carton threshold: 30 pairs total across article"
+              >
+                30 Box
+              </button>
+            </div>
+          </div>
+        </div>
+
         <div className="metric-card">
           <div className="metric-header">
-            <span className="metric-title">Inventory Cost Valuation</span>
+            <span className="metric-title">Inventory Valuation</span>
             <div className="metric-icon-wrap teal">
               <DollarSign size={18} />
             </div>
           </div>
           <div className="metric-value">{formatINR(stats.totalCostVal)}</div>
           <div className="metric-footer">
-            <span>Estimated wholesale purchase cost</span>
+            <span>Wholesale purchase valuation</span>
           </div>
         </div>
 
@@ -378,16 +558,44 @@ export default function InventoryView() {
               <option value="Girls">Girls (Kids' Footwear)</option>
             </select>
 
+            {/* Stock Level Selector with Issue 5 threshold details */}
             <select
               value={stockFilter}
               onChange={(e) => setStockFilter(e.target.value)}
               className="select-filter"
             >
               <option value="All">All Stock Levels</option>
-              <option value="Low">Low Stock (&le; 3 pairs)</option>
+              <option value="Low">
+                Low Stock ({thresholdMode === "per-size" ? `≤ ${lowStockThreshold} pairs/size` : `≤ ${lowStockThreshold} pairs total`})
+              </option>
               <option value="In">In Stock (&gt; 0)</option>
               <option value="Out">Out of Stock</option>
             </select>
+
+            {/* Low-Stock Threshold Mode Quick Selector (Issue 5) */}
+            <div className="threshold-selector-pill" title="Configure threshold rule">
+              <span className="pill-label">Alert Rule:</span>
+              <button
+                type="button"
+                className={`pill-opt ${thresholdMode === "per-size" && lowStockThreshold === 3 ? "selected" : ""}`}
+                onClick={() => {
+                  setThresholdMode("per-size");
+                  setLowStockThreshold(3);
+                }}
+              >
+                3 Pairs / Size
+              </button>
+              <button
+                type="button"
+                className={`pill-opt ${thresholdMode === "total" && lowStockThreshold === 30 ? "selected" : ""}`}
+                onClick={() => {
+                  setThresholdMode("total");
+                  setLowStockThreshold(30);
+                }}
+              >
+                30 Pairs Total
+              </button>
+            </div>
 
             {isAdmin && (
               <button
@@ -409,6 +617,17 @@ export default function InventoryView() {
               <Plus size={16} /> Add Footwear
             </button>
           </div>
+        </div>
+
+        {/* Threshold Explanation Note */}
+        <div className="threshold-info-strip">
+          <span className="info-icon">ℹ</span>
+          <span>
+            <strong>Low-Stock Logic:</strong>{" "}
+            {thresholdMode === "per-size"
+              ? `Currently monitoring individual shoe sizes with ≤ ${lowStockThreshold} pairs left (Retail single-size reorder mode).`
+              : `Currently monitoring total model carton stock with ≤ ${lowStockThreshold} pairs left (Wholesale box pack mode).`}
+          </span>
         </div>
       </div>
 
@@ -446,11 +665,19 @@ export default function InventoryView() {
                   const minPrice = Math.min(
                     ...prod.variants.map((v) => v.selling_price || 0)
                   );
+                  const maxPrice = Math.max(
+                    ...prod.variants.map((v) => v.selling_price || 0)
+                  );
                   const costPrice = prod.variants[0]?.cost_price || 0;
                   const marginPct =
                     minPrice > 0
                       ? Math.round(((minPrice - costPrice) / minPrice) * 100)
                       : 0;
+
+                  const isProductLowStock =
+                    thresholdMode === "per-size"
+                      ? prod.variants.some((v) => (v.stock || 0) <= lowStockThreshold)
+                      : totalStock <= lowStockThreshold;
 
                   const isHighlighted =
                     highlightTarget?.tab === "inventory" &&
@@ -462,15 +689,22 @@ export default function InventoryView() {
                     <tr
                       key={prod.id}
                       id={`prod-row-${prod.id}`}
-                      className={isHighlighted ? "table-row-highlight" : ""}
+                      className={`${isHighlighted ? "table-row-highlight" : ""} ${isProductLowStock ? "row-low-stock-alert" : ""}`}
                     >
                       <td>
                         <div className="prod-cell">
                           <span className="art-pill">{prod.article_no}</span>
                           <div>
-                            <strong>{prod.name}</strong>
+                            <strong style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                              {prod.name}
+                              {isProductLowStock && (
+                                <span className="low-stock-badge-dot" title="Low stock alert on this article">
+                                  LOW
+                                </span>
+                              )}
+                            </strong>
                             <div className="sub-text">
-                              GST: {prod.tax_rate}% • SKU: {prod.variants[0]?.sku || "-"}
+                              GST: {prod.tax_rate || 12}% • Barcode: {prod.variants[0]?.barcode || "-"}
                             </div>
                           </div>
                         </div>
@@ -486,18 +720,17 @@ export default function InventoryView() {
                       <td>
                         <div className="size-stock-pills">
                           {prod.variants.map((v) => {
-                            const isLow = (v.stock || 0) <= (v.reorder_level || 3);
+                            const isSizeLow = (v.stock || 0) <= (thresholdMode === "per-size" ? lowStockThreshold : 3);
                             return (
                               <button
                                 key={v.id}
-                                className={`size-inventory-pill ${
-                                  isLow ? "low" : ""
-                                }`}
+                                className={`size-inventory-pill ${isSizeLow ? "low" : ""}`}
                                 onClick={() => handleOpenAdjust(prod)}
-                                title={`Click to adjust sizes for ${prod.name}`}
+                                title={`Size ${v.size} (${v.color || "Standard"}): ${v.stock} pairs ${isSizeLow ? "(LOW STOCK)" : ""} - Click to adjust`}
                               >
                                 <span className="s-size">{v.size}</span>
                                 <span className="s-qty">{v.stock}</span>
+                                {isSizeLow && <span className="s-dot-alert" />}
                               </button>
                             );
                           })}
@@ -518,7 +751,7 @@ export default function InventoryView() {
 
                       <td style={{ textAlign: "right" }}>
                         <div style={{ fontWeight: 700, color: "#1e293b" }}>
-                          {formatINR(minPrice)}
+                          {minPrice === maxPrice ? formatINR(minPrice) : `${formatINR(minPrice)} - ${formatINR(maxPrice)}`}
                         </div>
                         <span className="margin-hint">{marginPct}% margin</span>
                       </td>
@@ -528,7 +761,7 @@ export default function InventoryView() {
                           className={`stock-badge ${
                             totalStock === 0
                               ? "out"
-                              : totalStock <= 5
+                              : totalStock <= lowStockThreshold
                               ? "low"
                               : "ok"
                           }`}
@@ -537,17 +770,20 @@ export default function InventoryView() {
                         </span>
                       </td>
 
+                      {/* Actions Column (Issue 9: Edit button added) */}
                       <td style={{ textAlign: "center" }}>
-                        <div style={{ display: "flex", gap: "6px", justifyContent: "center" }}>
+                        <div style={{ display: "flex", gap: "6px", justifyContent: "center", alignItems: "center" }}>
                           <button
-                            className="btn-tiny"
-                            style={{ color: "#7c632e", borderColor: "#c5a15c", background: "#fbf8f2" }}
-                            onClick={() => handleOpenAddSize(prod)}
-                            title="Add New Size Variant to this Product"
+                            type="button"
+                            className="btn-tiny btn-edit-action"
+                            style={{ color: "#0284c7", borderColor: "#bae6fd", background: "#f0f9ff", fontWeight: 600 }}
+                            onClick={() => handleOpenEditProduct(prod)}
+                            title="Edit product name, selling price, cost price, and barcodes (Issue 9)"
                           >
-                            + Size
+                            <Edit2 size={12} /> Edit
                           </button>
                           <button
+                            type="button"
                             className="btn-tiny"
                             onClick={() => handleOpenAdjust(prod)}
                             title="Adjust All Sizes Stock"
@@ -555,6 +791,7 @@ export default function InventoryView() {
                             Adjust
                           </button>
                           <button
+                            type="button"
                             className="btn-tiny-danger"
                             onClick={() => {
                               if (
@@ -579,6 +816,247 @@ export default function InventoryView() {
           </table>
         </div>
       </div>
+
+      {/* MODAL: EDIT PRODUCT DETAILS & VARIANTS (Issue 9) */}
+      {isEditOpen && editingProd && (
+        <div className="modal-backdrop" onClick={() => setIsEditOpen(false)}>
+          <div
+            className="modal-content product-edit-modal"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: "860px", width: "95%" }}
+          >
+            <div className="modal-header">
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <div className="setting-icon-box" style={{ background: "#e0f2fe", color: "#0284c7" }}>
+                  <Edit2 size={18} />
+                </div>
+                <div>
+                  <h3>Edit Footwear Details & Pricing</h3>
+                  <p>
+                    Update name, article code, GST slab, and individual size selling prices & stock
+                  </p>
+                </div>
+              </div>
+              <button className="btn-close" onClick={() => setIsEditOpen(false)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditProduct} className="product-form">
+              <div className="form-grid-3">
+                <div className="form-field">
+                  <label>Article Code*</label>
+                  <input
+                    type="text"
+                    required
+                    value={editingProd.article_no}
+                    onChange={(e) =>
+                      setEditingProd({ ...editingProd, article_no: e.target.value.toUpperCase() })
+                    }
+                  />
+                </div>
+
+                <div className="form-field" style={{ gridColumn: "span 2" }}>
+                  <label>Footwear Name / Model*</label>
+                  <input
+                    type="text"
+                    required
+                    value={editingProd.name}
+                    onChange={(e) =>
+                      setEditingProd({ ...editingProd, name: e.target.value })
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="form-grid-3">
+                <div className="form-field">
+                  <label>Brand</label>
+                  <input
+                    type="text"
+                    value={editingProd.brand}
+                    onChange={(e) =>
+                      setEditingProd({ ...editingProd, brand: e.target.value })
+                    }
+                  />
+                </div>
+
+                <div className="form-field">
+                  <label>Category</label>
+                  <select
+                    value={editingProd.category}
+                    onChange={(e) =>
+                      setEditingProd({ ...editingProd, category: e.target.value })
+                    }
+                  >
+                    <option value="Gents">Gents (Men's Footwear)</option>
+                    <option value="Ladies">Ladies (Women's Footwear)</option>
+                    <option value="Boys">Boys (Kids' Footwear)</option>
+                    <option value="Girls">Girls (Kids' Footwear)</option>
+                  </select>
+                </div>
+
+                <div className="form-field">
+                  <label>GST Tax Slab (Issue 3)</label>
+                  <select
+                    value={editingProd.tax_rate}
+                    onChange={(e) =>
+                      setEditingProd({ ...editingProd, tax_rate: Number(e.target.value) })
+                    }
+                  >
+                    <option value="5">5% (Footwear below ₹1,000)</option>
+                    <option value="12">12% (Footwear ₹1,000 & above)</option>
+                    <option value="18">18% Standard GST</option>
+                    <option value="0">0% Exempt</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Editable Sizes & Pricing Table (Issue 9) */}
+              <div className="edit-variants-container" style={{ marginTop: "16px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                  <div>
+                    <h4 style={{ margin: 0, fontSize: "13px", fontWeight: 700, color: "#1e293b" }}>
+                      Sizes, Selling Prices & Barcodes
+                    </h4>
+                    <span style={{ fontSize: "11px", color: "#64748b" }}>
+                      Edit individual selling prices, cost prices, stock counts, and barcodes for each size.
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-tiny"
+                    style={{ background: "#f0fdf4", color: "#16a34a", borderColor: "#bbf7d0", fontWeight: 600 }}
+                    onClick={handleAddVariantToEditing}
+                  >
+                    <Plus size={13} /> Add Size
+                  </button>
+                </div>
+
+                <div className="table-responsive" style={{ maxHeight: "280px", overflowY: "auto", border: "1px solid #e2e8f0", borderRadius: "6px" }}>
+                  <table className="custom-table edit-variants-table" style={{ fontSize: "12px" }}>
+                    <thead>
+                      <tr>
+                        <th style={{ width: "70px" }}>Size</th>
+                        <th style={{ width: "100px" }}>Color</th>
+                        <th style={{ width: "110px", textAlign: "right" }}>Cost (₹)</th>
+                        <th style={{ width: "120px", textAlign: "right" }}>Selling Price (₹)</th>
+                        <th style={{ width: "95px", textAlign: "center" }}>Stock</th>
+                        <th>Barcode (EAN/UPC)</th>
+                        <th style={{ width: "40px", textAlign: "center" }}></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {editingProd.variants.map((v, idx) => (
+                        <tr key={v.id || idx}>
+                          <td>
+                            <input
+                              type="text"
+                              className="table-input"
+                              value={v.size}
+                              onChange={(e) => handleEditingVariantChange(idx, "size", e.target.value)}
+                              style={{ width: "55px", textAlign: "center", fontWeight: 700 }}
+                            />
+                          </td>
+                          <td>
+                            <input
+                              type="text"
+                              className="table-input"
+                              value={v.color}
+                              onChange={(e) => handleEditingVariantChange(idx, "color", e.target.value)}
+                              placeholder="Color"
+                            />
+                          </td>
+                          <td>
+                            <input
+                              type="number"
+                              min="0"
+                              className="table-input"
+                              value={v.cost_price}
+                              onChange={(e) => handleEditingVariantChange(idx, "cost_price", Number(e.target.value))}
+                              style={{ textAlign: "right" }}
+                            />
+                          </td>
+                          <td>
+                            <input
+                              type="number"
+                              min="0"
+                              className="table-input highlight-price"
+                              value={v.selling_price}
+                              onChange={(e) => handleEditingVariantChange(idx, "selling_price", Number(e.target.value))}
+                              style={{ textAlign: "right", fontWeight: 700, color: "#0f172a" }}
+                            />
+                          </td>
+                          <td>
+                            <input
+                              type="number"
+                              min="0"
+                              className="table-input"
+                              value={v.stock}
+                              onChange={(e) => handleEditingVariantChange(idx, "stock", Number(e.target.value))}
+                              style={{ textAlign: "center" }}
+                            />
+                          </td>
+                          <td>
+                            <div style={{ display: "flex", gap: "4px" }}>
+                              <input
+                                type="text"
+                                className="table-input"
+                                value={v.barcode}
+                                onChange={(e) => handleEditingVariantChange(idx, "barcode", e.target.value)}
+                                placeholder="Scan/Type barcode"
+                              />
+                              <button
+                                type="button"
+                                className="btn-tiny"
+                                style={{ padding: "0 6px", fontSize: "10px" }}
+                                onClick={() => {
+                                  const cleanArt = editingProd.article_no.replace(/[^A-Z0-9]/gi, "").slice(-3).padStart(3, "0");
+                                  const cleanSize = String(v.size).padStart(2, "0");
+                                  const randomCode = Math.floor(1000 + Math.random() * 9000);
+                                  handleEditingVariantChange(idx, "barcode", `890${cleanArt}${cleanSize}${randomCode}`);
+                                }}
+                                title="Auto-generate standard barcode"
+                              >
+                                Auto
+                              </button>
+                            </div>
+                          </td>
+                          <td style={{ textAlign: "center" }}>
+                            {editingProd.variants.length > 1 && (
+                              <button
+                                type="button"
+                                className="btn-tiny-danger"
+                                onClick={() => handleRemoveVariantFromEditing(idx)}
+                                title="Remove this size variant"
+                              >
+                                <X size={12} />
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="modal-footer" style={{ marginTop: "20px" }}>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setIsEditOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="btn-primary">
+                  <Check size={16} /> Save Product Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* MODAL: ADD NEW FOOTWEAR */}
       {isAddOpen && (
@@ -607,7 +1085,7 @@ export default function InventoryView() {
                     placeholder="ART-109"
                     value={newProd.article_no}
                     onChange={(e) =>
-                      setNewProd({ ...newProd, article_no: e.target.value })
+                      setNewProd({ ...newProd, article_no: e.target.value.toUpperCase() })
                     }
                   />
                 </div>
@@ -1049,15 +1527,20 @@ export default function InventoryView() {
         </div>
       )}
 
-      {/* ADD NEW SIZE VARIANT MODAL */}
+      {/* MODAL: ADD NEW SIZE VARIANT TO EXISTING FOOTWEAR */}
       {isAddSizeOpen && sizeTargetProduct && (
         <div className="modal-backdrop" onClick={() => setIsAddSizeOpen(false)}>
-          <div className="modal-content" style={{ maxWidth: "520px" }} onClick={(e) => e.stopPropagation()}>
+          <div
+            className="modal-content"
+            style={{ maxWidth: "520px" }}
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="modal-header">
               <div>
-                <h3>Add New Size to Footwear</h3>
+                <h3>Add Size to {sizeTargetProduct.name}</h3>
                 <p>
-                  Model: <strong>{sizeTargetProduct.name}</strong> ({sizeTargetProduct.article_no})
+                  Article: <strong>{sizeTargetProduct.article_no}</strong> • Current Sizes:{" "}
+                  {sizeTargetProduct.variants.map((v) => v.size).join(", ")}
                 </p>
               </div>
               <button className="btn-close" onClick={() => setIsAddSizeOpen(false)}>
@@ -1065,38 +1548,22 @@ export default function InventoryView() {
               </button>
             </div>
 
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                const res = addVariantToProduct(sizeTargetProduct.id, newSizeForm);
-                if (res.success) {
-                  setIsAddSizeOpen(false);
-                } else {
-                  alert(res.message);
-                }
-              }}
-            >
-              <div style={{ padding: "4px 0" }}>
-                {/* Quick Size Preset Selector */}
+            <form onSubmit={handleSaveAddSize} className="product-form">
+              <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
                 <div className="form-field">
-                  <label>Select Size (UK / Indian Standard) or Enter Custom</label>
-                  <div className="size-preset-chips" style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "8px" }}>
-                    {["4", "5", "6", "7", "8", "9", "10", "11", "12", "13"].map((sz) => {
-                      const alreadyHas = sizeTargetProduct.variants.some(
-                        (v) => String(v.size) === sz
-                      );
+                  <label>Shoe Size (UK / India)*</label>
+                  <div style={{ display: "flex", gap: "6px", marginBottom: "8px", flexWrap: "wrap" }}>
+                    {["5", "6", "7", "8", "9", "10", "11", "12"].map((sz) => {
+                      const alreadyHas = sizeTargetProduct.variants.some((v) => v.size === sz);
                       const isChosen = newSizeForm.size === sz;
                       return (
                         <button
                           key={sz}
                           type="button"
-                          className={`btn-chip ${isChosen ? "active" : ""}`}
-                          disabled={alreadyHas}
+                          className="btn-tiny"
                           style={{
-                            minWidth: "36px",
-                            opacity: alreadyHas ? 0.45 : 1,
-                            borderColor: isChosen ? "var(--gold)" : "#cbd5e1",
-                            background: isChosen ? "var(--navy)" : alreadyHas ? "#f1f5f9" : "#fff",
+                            background: isChosen ? "#101c35" : alreadyHas ? "#f1f5f9" : "#fff",
+                            borderColor: isChosen ? "#101c35" : "#cbd5e1",
                             color: isChosen ? "#fff" : alreadyHas ? "#94a3b8" : "#1e293b",
                             fontWeight: isChosen ? 700 : 500,
                           }}

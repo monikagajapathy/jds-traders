@@ -590,6 +590,8 @@ export function StoreProvider({ children }) {
         );
       }
       const price = Number(variant.selling_price) || 0;
+      const itemTaxRate = Number(product.tax_rate ?? settings.default_tax_rate ?? 5);
+      const hsn = product.hsn_code || (price >= 1000 ? "6403" : "6404");
       return [
         ...prev,
         {
@@ -606,7 +608,8 @@ export function StoreProvider({ children }) {
           quantity: 1,
           discount_amount: 0,
           max_stock: availableStock,
-          tax_rate: product.tax_rate ?? settings.default_tax_rate ?? 5,
+          tax_rate: itemTaxRate,
+          hsn_code: hsn,
         },
       ];
     });
@@ -636,6 +639,16 @@ export function StoreProvider({ children }) {
     );
   };
 
+  const updateCartItemTaxRate = (variantId, taxRate) => {
+    setCart((prev) =>
+      prev.map((item) =>
+        item.variant_id === variantId
+          ? { ...item, tax_rate: Math.max(0, Number(taxRate) || 0) }
+          : item
+      )
+    );
+  };
+
   const removeFromCart = (variantId) => {
     setCart((prev) => prev.filter((item) => item.variant_id !== variantId));
   };
@@ -655,7 +668,7 @@ export function StoreProvider({ children }) {
   }) => {
     if (cart.length === 0) return null;
 
-    const subtotal = cart.reduce(
+    const rawSubtotal = cart.reduce(
       (sum, item) => sum + (Number(item.unit_price ?? item.unitPrice) || 0) * (Number(item.quantity) || 1),
       0
     );
@@ -663,13 +676,87 @@ export function StoreProvider({ children }) {
       (sum, item) => sum + (Number(item.discount_amount) || 0) * (Number(item.quantity) || 1),
       0
     );
-    const totalDiscount = Math.min(
-      subtotal,
-      Math.max(0, Number(billDiscount || 0)) + itemDiscounts
-    );
-    const taxableAmount = Math.max(0, subtotal - totalDiscount);
-    const taxAmount = (taxableAmount * (Number(taxRate) || 0)) / 100;
-    const grandTotal = Math.round((taxableAmount + taxAmount) * 100) / 100;
+    const overallBillDiscount = Math.max(0, Number(billDiscount || 0));
+    const totalDiscount = Math.min(rawSubtotal, overallBillDiscount + itemDiscounts);
+
+    // Compute itemized taxable amounts, GST, CGST, and SGST per product
+    let totalTaxAmount = 0;
+    let totalTaxableVal = 0;
+    const gstBreakdownMap = new Map();
+
+    const saleItems = cart.map((item) => {
+      const itemPrice = Number(item.unit_price ?? item.unitPrice ?? 0);
+      const qty = Number(item.quantity) || 1;
+      const rawLineTotal = itemPrice * qty;
+      const directItemDisc = (Number(item.discount_amount) || 0) * qty;
+
+      // Allocate proportional bill-level discount across items
+      const propBillDisc = rawSubtotal > 0 ? (rawLineTotal / rawSubtotal) * overallBillDiscount : 0;
+      const itemTotalDiscount = Math.min(rawLineTotal, directItemDisc + propBillDisc);
+      const itemTaxable = Math.max(0, rawLineTotal - itemTotalDiscount);
+      const itemRate = Number(item.tax_rate ?? taxRate ?? 5);
+      const itemTax = (itemTaxable * itemRate) / 100;
+      const cgstAmt = itemTax / 2;
+      const sgstAmt = itemTax / 2;
+
+      totalTaxableVal += itemTaxable;
+      totalTaxAmount += itemTax;
+
+      // Group into GST Statement breakdown
+      const slabKey = `${itemRate}%`;
+      if (!gstBreakdownMap.has(slabKey)) {
+        gstBreakdownMap.set(slabKey, {
+          rate: itemRate,
+          taxable: 0,
+          cgstRate: itemRate / 2,
+          cgstAmt: 0,
+          sgstRate: itemRate / 2,
+          sgstAmt: 0,
+          totalTax: 0,
+        });
+      }
+      const slabObj = gstBreakdownMap.get(slabKey);
+      slabObj.taxable += itemTaxable;
+      slabObj.cgstAmt += cgstAmt;
+      slabObj.sgstAmt += sgstAmt;
+      slabObj.totalTax += itemTax;
+
+      return {
+        product_id: item.product_id,
+        variant_id: item.variant_id,
+        product_name: item.product_name,
+        article_no: item.article_no,
+        brand: item.brand,
+        size: item.size,
+        color: item.color,
+        unit_price: itemPrice,
+        unitPrice: itemPrice,
+        cost_price: Number(item.cost_price || 0),
+        quantity: qty,
+        discount_amount: itemTotalDiscount,
+        tax_rate: itemRate,
+        taxable_amount: Math.round(itemTaxable * 100) / 100,
+        tax_amount: Math.round(itemTax * 100) / 100,
+        cgst_rate: itemRate / 2,
+        cgst_amount: Math.round(cgstAmt * 100) / 100,
+        sgst_rate: itemRate / 2,
+        sgst_amount: Math.round(sgstAmt * 100) / 100,
+        hsn_code: item.hsn_code || (itemPrice >= 1000 ? "6403" : "6404"),
+        total_with_tax: Math.round((itemTaxable + itemTax) * 100) / 100,
+      };
+    });
+
+    const gstBreakdown = Array.from(gstBreakdownMap.values()).map((s) => ({
+      ...s,
+      taxable: Math.round(s.taxable * 100) / 100,
+      cgstAmt: Math.round(s.cgstAmt * 100) / 100,
+      sgstAmt: Math.round(s.sgstAmt * 100) / 100,
+      totalTax: Math.round(s.totalTax * 100) / 100,
+    }));
+
+    const finalTaxAmount = Math.round(totalTaxAmount * 100) / 100;
+    const finalTaxable = Math.round(totalTaxableVal * 100) / 100;
+    const grandTotal = Math.round((finalTaxable + finalTaxAmount) * 100) / 100;
 
     const nextInvoiceNum = `${settings.invoice_prefix || "JDS-INV-"}${new Date().getFullYear()}-${String(
       sales.length + 43
@@ -687,31 +774,17 @@ export function StoreProvider({ children }) {
         phone: customer.phone || "",
       },
       status: "Completed",
-      subtotal,
+      subtotal: rawSubtotal,
       discount_amount: totalDiscount,
-      tax_amount: taxAmount,
+      taxable_amount: finalTaxable,
+      tax_amount: finalTaxAmount,
       tax_rate: taxRate,
       total: grandTotal,
+      gst_breakdown: gstBreakdown,
       payment_method: paymentMethod,
       payment_split: paymentMethod === "Split" ? paymentSplit : null,
       notes: notes || "Over-the-counter sale",
-      items: cart.map((item) => {
-        const itemPrice = Number(item.unit_price ?? item.unitPrice ?? 0);
-        return {
-          product_id: item.product_id,
-          variant_id: item.variant_id,
-          product_name: item.product_name,
-          article_no: item.article_no,
-          brand: item.brand,
-          size: item.size,
-          color: item.color,
-          unit_price: itemPrice,
-          unitPrice: itemPrice,
-          cost_price: Number(item.cost_price || 0),
-          quantity: Number(item.quantity) || 1,
-          discount_amount: Number(item.discount_amount) || 0,
-        };
-      }),
+      items: saleItems,
     };
 
     // Deduct stock from inventory
@@ -1120,9 +1193,100 @@ export function StoreProvider({ children }) {
   };
 
   const updateProduct = (productId, updatedData) => {
+    let oldProd = null;
+
     setProducts((prev) =>
-      prev.map((prod) => (prod.id === productId ? { ...prod, ...updatedData } : prod))
+      prev.map((prod) => {
+        if (prod.id !== productId) return prod;
+        oldProd = prod;
+
+        let mergedVariants = prod.variants;
+        if (Array.isArray(updatedData.variants)) {
+          mergedVariants = updatedData.variants.map((v) => ({
+            ...v,
+            selling_price: Number(v.selling_price) || 0,
+            cost_price: Number(v.cost_price) || 0,
+            stock: Math.max(0, Number(v.stock) || 0),
+          }));
+        }
+
+        return {
+          ...prod,
+          ...updatedData,
+          variants: mergedVariants,
+        };
+      })
     );
+
+    // Audit trail if variant stock or prices changed
+    if (updatedData.variants && oldProd) {
+      const oldTotal = oldProd.variants.reduce((s, v) => s + (v.stock || 0), 0);
+      const newTotal = updatedData.variants.reduce((s, v) => s + (Number(v.stock) || 0), 0);
+      const delta = newTotal - oldTotal;
+
+      const logItem = {
+        id: `log-edit-${Date.now()}`,
+        product_id: productId,
+        product_name: updatedData.name || oldProd.name,
+        article_no: updatedData.article_no || oldProd.article_no,
+        delta: delta,
+        reason: "Product Details & Price Edit",
+        note: `Updated product attributes, pricing, and stock (Net delta: ${delta >= 0 ? `+${delta}` : delta} pairs)`,
+        adjusted_by: currentUser?.name || "JDS Admin",
+        created_at: new Date().toISOString(),
+      };
+      setStockLogs((prev) => [logItem, ...prev]);
+    }
+
+    // Async push updates to Supabase
+    if (supabase) {
+      (async () => {
+        try {
+          const { data: pData } = await supabase
+            .from("products")
+            .select("id")
+            .eq("article_no", oldProd?.article_no || updatedData.article_no)
+            .limit(1);
+          const prodUUID = pData?.[0]?.id || toUUID(productId);
+
+          await supabase.from("products").upsert({
+            id: prodUUID,
+            name: updatedData.name || oldProd?.name,
+            brand: updatedData.brand || oldProd?.brand,
+            category: mapCategoryForSupabase(updatedData.category || oldProd?.category),
+            article_no: updatedData.article_no || oldProd?.article_no,
+            is_active: true,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: "article_no" });
+
+          if (Array.isArray(updatedData.variants)) {
+            for (const v of updatedData.variants) {
+              const sku = v.sku || `JDS-${updatedData.article_no || oldProd?.article_no}-${v.size}`;
+              const { data: vData } = await supabase.from("product_variants").upsert({
+                id: toUUID(v.id),
+                product_id: prodUUID,
+                size: String(v.size),
+                color: v.color || "Standard",
+                sku: sku,
+                barcode: v.barcode || null,
+                selling_price: Number(v.selling_price) || 0,
+                cost_price: Number(v.cost_price) || 0,
+              }, { onConflict: "sku" }).select("id");
+
+              const varUUID = vData?.[0]?.id || toUUID(v.id);
+              await supabase.from("inventory").upsert({
+                variant_id: varUUID,
+                quantity: Number(v.stock) || 0,
+                reorder_level: Number(v.reorder_level) || 3,
+                updated_at: new Date().toISOString(),
+              }, { onConflict: "variant_id" });
+            }
+          }
+        } catch (err) {
+          console.warn("[Supabase Sync] Product update notice:", err.message);
+        }
+      })();
+    }
   };
 
   const deleteProduct = (productId) => {
@@ -1609,6 +1773,7 @@ export function StoreProvider({ children }) {
     addToCart,
     updateCartQty,
     updateCartItemDiscount,
+    updateCartItemTaxRate,
     removeFromCart,
     clearCart,
     completeCheckout,

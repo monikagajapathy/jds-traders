@@ -8,7 +8,9 @@ export const initialShopSettings = {
   currency: "₹",
   default_tax_rate: 5,
   invoice_prefix: "JDS-INV-",
-  footer_note: "Thank you for shopping at JDS Traders! Exchange within 7 days with original invoice in unworn condition."
+  footer_note: "Thank you for shopping at JDS Traders! Exchange within 7 days with original invoice in unworn condition.",
+  low_stock_threshold: 3,
+  require_customer_phone: false,
 };
 
 export const initialProducts = [
