@@ -283,60 +283,11 @@ export default function ReceiptModal() {
 
           {/* Bottom Statement Section: GST Summary Box + Invoice Totals */}
           <div className="statement-bottom-grid">
-            {/* Left: GST Tax Slab Computation Statement Box (Issue 10) */}
-            <div className="statement-gst-breakup-box">
-              <div className="gst-breakup-title">
-                <ShieldCheck size={13} /> GST Tax Breakup Statement
-              </div>
-              <table className="statement-gst-subtable">
-                <thead>
-                  <tr>
-                    <th>Tax Slab</th>
-                    <th style={{ textAlign: "right" }}>Taxable (₹)</th>
-                    <th style={{ textAlign: "right" }}>CGST (₹)</th>
-                    <th style={{ textAlign: "right" }}>SGST (₹)</th>
-                    <th style={{ textAlign: "right" }}>Total Tax (₹)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {gstBreakdown.map((s, i) => (
-                    <tr key={i}>
-                      <td>
-                        <strong>GST {s.rate}%</strong> ({s.cgstRate}% + {s.sgstRate}%)
-                      </td>
-                      <td style={{ textAlign: "right" }}>{formatINR(s.taxable)}</td>
-                      <td style={{ textAlign: "right" }}>{formatINR(s.cgstAmt)}</td>
-                      <td style={{ textAlign: "right" }}>{formatINR(s.sgstAmt)}</td>
-                      <td style={{ textAlign: "right", fontWeight: 600 }}>
-                        {formatINR(s.totalTax)}
-                      </td>
-                    </tr>
-                  ))}
-                  <tr className="gst-subtable-total-row">
-                    <td>
-                      <strong>Total</strong>
-                    </td>
-                    <td style={{ textAlign: "right" }}>
-                      <strong>{formatINR(taxableAmount)}</strong>
-                    </td>
-                    <td style={{ textAlign: "right" }}>
-                      <strong>{formatINR(totalCgst)}</strong>
-                    </td>
-                    <td style={{ textAlign: "right" }}>
-                      <strong>{formatINR(totalSgst)}</strong>
-                    </td>
-                    <td style={{ textAlign: "right" }}>
-                      <strong>{formatINR(taxAmount)}</strong>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-
-              {/* Amount in Words */}
-              <div className="statement-amount-words">
-                <span className="words-caption">Invoice Amount in Words: </span>
-                <span className="words-text">{numberToWordsINR(grandTotal)}</span>
-              </div>
+            {/* Left: Invoice Amount in Words (GST breakup table removed as requested) */}
+            <div className="statement-words-card">
+              <span className="words-caption">INVOICE AMOUNT IN WORDS</span>
+              <div className="words-text">{numberToWordsINR(grandTotal)}</div>
+              <div className="words-subnote">Official retail footwear tax invoice memo.</div>
             </div>
 
             {/* Right: Net Financial Totals */}

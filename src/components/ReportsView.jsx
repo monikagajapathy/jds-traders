@@ -27,6 +27,7 @@ import {
   Legend,
 } from "recharts";
 import { useStore } from "../context/StoreContext.jsx";
+import { formatINR } from "../utils/calculations.js";
 // Custom Tooltip component: Clearly labels Sales Revenue vs Gross Profit (Issue 2)
 function CustomDailyReportTooltip({ active, payload, label }) {
   if (!active || !payload || !payload.length) return null;
