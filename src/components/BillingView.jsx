@@ -654,14 +654,11 @@ export default function BillingView() {
                       </div>
                     ) : (
                       <div className="footwear-card-price unselected">
-                        <div className="unselected-prompt-wrap">
-                          <span className="tap-size-prompt-title">Tap size to view price</span>
-                          <span className="price-range-tag">
-                            {minPrice === maxPrice
-                              ? formatINR(minPrice)
-                              : `${formatINR(minPrice)} – ${formatINR(maxPrice)}`}
-                          </span>
-                        </div>
+                        <span className="price-range-tag">
+                          {minPrice === maxPrice
+                            ? formatINR(minPrice)
+                            : `${formatINR(minPrice)} – ${formatINR(maxPrice)}`}
+                        </span>
                         <span className="tax-hint">
                           GST: {minPrice < 1000 && maxPrice >= 1000 ? "5% / 12%" : (minPrice >= 1000 ? "12%" : "5%")}
                         </span>
@@ -958,8 +955,8 @@ export default function BillingView() {
           </div>
 
           <div className="grand-total">
-            <span>Grand total</span>
-            <strong>{formatINR(grandTotal)}</strong>
+            <span className="grand-total-label">Grand total</span>
+            <strong className="grand-total-val">{formatINR(grandTotal)}</strong>
           </div>
 
           {/* Payment Method Selector */}
@@ -1041,32 +1038,7 @@ export default function BillingView() {
                 </div>
               </div>
 
-              <div className="split-presets-row">
-                <button
-                  type="button"
-                  className="btn-chip"
-                  onClick={() => {
-                    const half = Math.round((grandTotal / 2) * 100) / 100;
-                    setSplitCash(half);
-                    setSplitUpi(Math.round((grandTotal - half) * 100) / 100);
-                  }}
-                >
-                  50% Cash / 50% UPI
-                </button>
-                <button
-                  type="button"
-                  className="btn-chip"
-                  onClick={() => {
-                    const roundedCash = Math.min(
-                      grandTotal,
-                      Math.floor(grandTotal / 500) * 500 || 500
-                    );
-                    handleCashChange(roundedCash);
-                  }}
-                >
-                  Round Cash ₹500
-                </button>
-              </div>
+
             </div>
           )}
 

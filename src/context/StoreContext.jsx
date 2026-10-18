@@ -186,13 +186,52 @@ export function StoreProvider({ children }) {
       const saved = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
       if (saved) {
         const parsed = JSON.parse(saved);
-        // Verify if parsed products have the updated size-tiered variants (e.g. ART-110 size 6 is 899)
-        const p10 = parsed.find((p) => p.article_no === "ART-110");
-        const hasTieredPrices =
-          p10 &&
-          p10.variants?.some((v) => String(v.size) === "6" && Number(v.selling_price) === 899);
-        if (hasTieredPrices && parsed.length >= initialProducts.length) {
-          return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Self-heal: ensure every product has its tiered size prices from initialProducts
+          const updated = parsed.map((p) => {
+            const initP = initialProducts.find(
+              (ip) => ip.id === p.id || ip.article_no === p.article_no
+            );
+            if (!initP) return p;
+
+            // Check if this product has flat identical prices across variants
+            const allSame =
+              p.variants &&
+              p.variants.length > 1 &&
+              p.variants.every(
+                (v) => Number(v.selling_price) === Number(p.variants[0].selling_price)
+              );
+
+            if (allSame) {
+              // Merge tiered prices from initialProducts while preserving current stock
+              const mergedVariants = p.variants.map((v) => {
+                const initV = initP.variants.find(
+                  (iv) => iv.id === v.id || String(iv.size) === String(v.size)
+                );
+                if (initV) {
+                  return {
+                    ...v,
+                    selling_price: initV.selling_price,
+                    cost_price: initV.cost_price,
+                    tax_rate: initV.tax_rate ?? (initV.selling_price >= 1000 ? 12 : 5),
+                  };
+                }
+                return v;
+              });
+              return { ...p, variants: mergedVariants };
+            }
+            return p;
+          });
+
+          // Ensure any missing initial products are also added
+          const missing = initialProducts.filter(
+            (ip) => !updated.some((p) => p.id === ip.id || p.article_no === ip.article_no)
+          );
+          const finalProds = [...updated, ...missing];
+          try {
+            localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(finalProds));
+          } catch {}
+          return finalProds;
         }
       }
       return initialProducts;

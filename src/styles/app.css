@@ -611,34 +611,26 @@
 }
 
 .footwear-card-price.unselected {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   background: #f8fafc;
   border: 1px dashed #cbd5e1;
   border-radius: 6px;
-  padding: 4px 6px;
+  padding: 5px 8px;
   margin-bottom: 8px;
   min-height: 28px;
 }
 
-.unselected-prompt-wrap {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.tap-size-prompt-title {
-  font-size: 10.5px;
-  font-weight: 700;
-  color: #475569;
-}
-
 .price-range-tag {
-  font-size: 9.5px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 800;
   color: #c5a15c;
   background: #fffdf5;
   border: 1px solid #f0e4c3;
-  padding: 1px 5px;
+  padding: 2px 7px;
   border-radius: 4px;
+  letter-spacing: -0.2px;
 }
 
 .tax-hint {
@@ -1113,19 +1105,34 @@
   color: #047857;
 }
 
-.totals .grand-total {
-  padding-top: 8px;
+.totals .grand-total,
+.grand-total {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  width: 100% !important;
+  padding-top: 10px;
   border-top: 1px dashed #cbd5e1;
   color: #101c35;
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: 800;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
-.totals .grand-total strong {
+.totals .grand-total span,
+.grand-total .grand-total-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.totals .grand-total strong,
+.grand-total .grand-total-val {
   font-size: 22px;
   color: #101c35;
   letter-spacing: -0.5px;
+  text-align: right;
+  margin-left: auto;
 }
 
 .payment-options {
