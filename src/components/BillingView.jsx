@@ -22,6 +22,8 @@ import {
   CheckCircle2,
   Volume2,
   X,
+  Phone,
+  ArrowRight,
 } from "lucide-react";
 import { useStore } from "../context/StoreContext.jsx";
 import { formatINR } from "../utils/calculations.js";
@@ -149,11 +151,13 @@ export default function BillingView() {
       }
 
       // Brand filter
-      if (selectedBrand !== "All" && prod.brand !== selectedBrand) {
-        return false;
+      if (selectedBrand !== "All") {
+        if (prod.brand?.toLowerCase() !== selectedBrand.toLowerCase()) {
+          return false;
+        }
       }
 
-      // Size filter (checks if product has this size in stock)
+      // Size filter
       if (selectedSize !== "All") {
         const hasSize = prod.variants?.some(
           (v) => String(v.size) === String(selectedSize) && (v.stock || 0) > 0
@@ -164,89 +168,142 @@ export default function BillingView() {
       // Color filter
       if (selectedColor !== "All") {
         const hasColor = prod.variants?.some(
-          (v) => v.color?.toLowerCase() === selectedColor.toLowerCase()
+          (v) =>
+            v.color?.toLowerCase() === selectedColor.toLowerCase() &&
+            (v.stock || 0) > 0
         );
         if (!hasColor) return false;
       }
 
-      // Instant live search while typing (Issue 4 - works without pressing Enter)
+      // Instant live query (Issue 4: searches on typing without pressing Enter)
       if (!query.trim()) return true;
       const q = query.toLowerCase().trim();
-      const matchName = prod.name.toLowerCase().includes(q);
+
+      const matchName = prod.name?.toLowerCase().includes(q);
       const matchArt = prod.article_no?.toLowerCase().includes(q);
       const matchBrand = prod.brand?.toLowerCase().includes(q);
-      const matchCat =
-        prod.category?.toLowerCase().includes(q) ||
-        prod.sub_category?.toLowerCase().includes(q);
+      const matchCat = prod.category?.toLowerCase().includes(q);
+      const matchSub = prod.sub_category?.toLowerCase().includes(q);
+
       const matchVariant = prod.variants?.some(
         (v) =>
           v.barcode?.toLowerCase().includes(q) ||
           v.sku?.toLowerCase().includes(q) ||
-          v.color?.toLowerCase().includes(q) ||
-          String(v.size).toLowerCase() === q
+          String(v.size).toLowerCase() === q ||
+          v.color?.toLowerCase().includes(q)
       );
 
-      return matchName || matchArt || matchBrand || matchCat || matchVariant;
+      return matchName || matchArt || matchBrand || matchCat || matchSub || matchVariant;
     });
   }, [products, selectedCategory, selectedBrand, selectedSize, selectedColor, query]);
 
-  // Barcode Lookup & Auto-Add (Issue 8)
-  const handleBarcodeProcess = (rawCode) => {
-    if (!rawCode || !rawCode.trim()) return;
-    const code = rawCode.trim().toLowerCase();
+  // Barcode scanning processing (Issue 8)
+  const handleBarcodeProcess = (scannedCode) => {
+    const raw = scannedCode.trim();
+    if (!raw) return;
+
+    let matchedProduct = null;
+    let matchedVariant = null;
 
     for (const prod of products) {
-      const match = prod.variants.find(
-        (v) =>
-          v.barcode?.toLowerCase() === code ||
-          v.sku?.toLowerCase() === code ||
-          (v.barcode && v.barcode.endsWith(code)) ||
-          prod.article_no?.toLowerCase() === code
+      const v = prod.variants?.find(
+        (variant) =>
+          variant.barcode?.toLowerCase() === raw.toLowerCase() ||
+          variant.sku?.toLowerCase() === raw.toLowerCase()
       );
-      if (match) {
-        if ((match.stock || 0) <= 0) {
-          alert(`Warning: ${prod.name} (Size ${match.size}) is Out of Stock.`);
-          return;
-        }
-        addToCart(match, prod);
-        playBeep();
-        setScanToast({
-          name: prod.name,
-          size: match.size,
-          color: match.color,
-          price: match.selling_price,
-          barcode: match.barcode,
-        });
-        setTimeout(() => setScanToast(null), 3500);
-        setBarcodeInput("");
-        setQuery("");
-        return;
+      if (v) {
+        matchedProduct = prod;
+        matchedVariant = v;
+        break;
       }
     }
 
-    alert(`No footwear variant found matching barcode / code: "${rawCode}"`);
-  };
+    if (matchedProduct && matchedVariant) {
+      if ((matchedVariant.stock || 0) <= 0) {
+        alert(
+          `Out of Stock: ${matchedProduct.name} (Size ${matchedVariant.size}) currently has 0 stock.`
+        );
+        setBarcodeInput("");
+        return;
+      }
 
-  // Keyboard Enter handler on barcode scanner input
-  const handleBarcodeKeyDown = (e) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      handleBarcodeProcess(barcodeInput || query);
+      playBeep();
+      addToCart(matchedVariant, matchedProduct);
+
+      setScanToast({
+        name: matchedProduct.name,
+        size: matchedVariant.size,
+        price: matchedVariant.selling_price,
+        barcode: matchedVariant.barcode,
+      });
+
+      setTimeout(() => setScanToast(null), 3000);
+      setBarcodeInput("");
+    } else {
+      alert(`Barcode not found in inventory: ${raw}`);
+      setBarcodeInput("");
     }
   };
 
-  // Size selection and toggle logic (Issue 6 - clicking same size deselects it)
+  const handleBarcodeKeyDown = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleBarcodeProcess(barcodeInput);
+    }
+  };
+
+  // Keyboard shortcut listener for USB Barcode Scanners
+  useEffect(() => {
+    let keyBuffer = "";
+    let lastKeyTime = Date.now();
+
+    const handleWindowKeyDown = (e) => {
+      if (
+        document.activeElement &&
+        (document.activeElement.tagName === "INPUT" ||
+          document.activeElement.tagName === "SELECT" ||
+          document.activeElement.tagName === "TEXTAREA")
+      ) {
+        return;
+      }
+
+      const now = Date.now();
+      if (now - lastKeyTime > 120) {
+        keyBuffer = "";
+      }
+      lastKeyTime = now;
+
+      if (e.key === "Enter") {
+        if (keyBuffer.length >= 6) {
+          handleBarcodeProcess(keyBuffer);
+          keyBuffer = "";
+          e.preventDefault();
+        }
+      } else if (e.key.length === 1) {
+        keyBuffer += e.key;
+      }
+    };
+
+    window.addEventListener("keydown", handleWindowKeyDown);
+    return () => window.removeEventListener("keydown", handleWindowKeyDown);
+  }, [products]);
+
+  // Size selection and toggle logic for cards (Issue 6)
   const handleSizeClick = (variant, prod) => {
-    if (selectedSizes[prod.id] === variant.id) {
-      // Clicking the same size again deselects it!
+    const currentSelected = selectedSizes[prod.id];
+    if (currentSelected === variant.id) {
+      // Clicking the same size again deselects it
       setSelectedSizes((prev) => {
         const next = { ...prev };
         delete next[prod.id];
         return next;
       });
     } else {
-      // Select this size
-      setSelectedSizes((prev) => ({ ...prev, [prod.id]: variant.id }));
+      // Select new size
+      setSelectedSizes((prev) => ({
+        ...prev,
+        [prod.id]: variant.id,
+      }));
     }
   };
 
@@ -257,7 +314,6 @@ export default function BillingView() {
   );
   const totalDiscount = Math.min(subtotal, Math.max(0, Number(billDiscount) || 0));
 
-  // Compute itemized GST sum based on each product's saved GST rate or custom rate
   let calculatedTaxAmount = 0;
   let calculatedTaxableAmount = 0;
 
@@ -388,6 +444,7 @@ export default function BillingView() {
 
       {/* LEFT PANEL: PRODUCT CATALOGUE */}
       <div className="panel catalog-panel">
+        {/* Panel Header */}
         <div className="panel-heading">
           <div>
             <h2>Product catalogue</h2>
@@ -408,6 +465,47 @@ export default function BillingView() {
           </div>
         </div>
 
+        {/* Integrated Unified Search & Barcode Scan Bar */}
+        <div className="billing-search-scan-bar">
+          <div className="search-box-unified">
+            <Search size={15} className="search-icon-left" />
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Live search by name, article code, brand, color, size..."
+              className="search-input-field"
+            />
+            {query && (
+              <button
+                type="button"
+                className="search-clear-icon-btn"
+                onClick={() => setQuery("")}
+                title="Clear search"
+              >
+                ✕
+              </button>
+            )}
+            <span className="search-count-pill">{filteredProducts.length} found</span>
+          </div>
+
+          <div className="barcode-box-unified" title="Auto-detects USB / Bluetooth Barcode Scanners">
+            <ScanLine size={15} className="barcode-icon-left" />
+            <input
+              ref={barcodeInputRef}
+              type="text"
+              value={barcodeInput}
+              onChange={(e) => setBarcodeInput(e.target.value)}
+              onKeyDown={handleBarcodeKeyDown}
+              placeholder="Scan Barcode (Auto-Add)..."
+              className="barcode-input-field"
+            />
+            <span className="scanner-ready-badge" title="Hardware Scanner Active">
+              <span className="pulse-dot" /> LIVE
+            </span>
+          </div>
+        </div>
+
         {/* Category Filter Pills (Issue 1) */}
         <div className="category-scroll">
           {categories.map((cat) => (
@@ -421,14 +519,14 @@ export default function BillingView() {
           ))}
         </div>
 
-        {/* Secondary Filter Strip: Brand, Size, Color (Issue 1) */}
-        <div className="catalogue-filter-bar">
-          <div className="catalogue-filter-item">
-            <label>Brand:</label>
+        {/* Secondary Filter Toolbar: Brand, Size, Color (Issue 1) */}
+        <div className="catalogue-filter-toolbar">
+          <div className="filter-dropdown-chip">
+            <span className="chip-label">Brand:</span>
             <select
               value={selectedBrand}
               onChange={(e) => setSelectedBrand(e.target.value)}
-              className="catalogue-filter-select"
+              className="chip-select"
             >
               {availableBrands.map((b) => (
                 <option key={b} value={b}>
@@ -438,12 +536,12 @@ export default function BillingView() {
             </select>
           </div>
 
-          <div className="catalogue-filter-item">
-            <label>Size:</label>
+          <div className="filter-dropdown-chip">
+            <span className="chip-label">Size:</span>
             <select
               value={selectedSize}
               onChange={(e) => setSelectedSize(e.target.value)}
-              className="catalogue-filter-select"
+              className="chip-select"
             >
               {availableSizes.map((s) => (
                 <option key={s} value={s}>
@@ -453,12 +551,12 @@ export default function BillingView() {
             </select>
           </div>
 
-          <div className="catalogue-filter-item">
-            <label>Color:</label>
+          <div className="filter-dropdown-chip">
+            <span className="chip-label">Color:</span>
             <select
               value={selectedColor}
               onChange={(e) => setSelectedColor(e.target.value)}
-              className="catalogue-filter-select"
+              className="chip-select"
             >
               {availableColors.map((c) => (
                 <option key={c} value={c}>
@@ -471,60 +569,13 @@ export default function BillingView() {
           {hasActiveFilters && (
             <button
               type="button"
-              className="btn-reset-filters"
+              className="btn-filter-reset-action"
               onClick={resetAllFilters}
               title="Reset all search and filter conditions"
             >
-              <RotateCcw size={12} /> Reset
+              <RotateCcw size={11} /> Reset Filters
             </button>
           )}
-        </div>
-
-        {/* Dual Input Strip: Barcode Quick Scan + Auto-Search on Typing (Issue 4 & 8) */}
-        <div className="search-and-scan-strip">
-          {/* Real-time search input (Issue 4: searches automatically while typing) */}
-          <div className="search-row-instant">
-            <Search size={16} />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Live search by name, article code, brand, color, size..."
-            />
-            {query && (
-              <button
-                type="button"
-                className="search-clear-btn"
-                onClick={() => setQuery("")}
-              >
-                ✕
-              </button>
-            )}
-            <span className="live-filter-badge">
-              {filteredProducts.length} found
-            </span>
-          </div>
-
-          {/* Dedicated Barcode Scanner Input (Issue 8) */}
-          <div className="barcode-scan-input-box" title="Auto-detects USB / Bluetooth Barcode Scanners">
-            <ScanLine size={16} className="barcode-icon" />
-            <input
-              ref={barcodeInputRef}
-              type="text"
-              value={barcodeInput}
-              onChange={(e) => setBarcodeInput(e.target.value)}
-              onKeyDown={handleBarcodeKeyDown}
-              placeholder="Scan Barcode (Auto-Add)..."
-            />
-            {barcodeInput && (
-              <button
-                type="button"
-                className="btn-quick-scan-submit"
-                onClick={() => handleBarcodeProcess(barcodeInput)}
-              >
-                Add
-              </button>
-            )}
-          </div>
         </div>
 
         {/* Product Cards Grid */}
@@ -581,11 +632,11 @@ export default function BillingView() {
 
                     {/* Dynamic Price Display for Selected Size (Issue 6) */}
                     <div className="footwear-card-price">
-                      <div style={{ display: "flex", alignItems: "baseline", gap: "6px" }}>
+                      <div>
                         <strong>{formatINR(displayPrice)}</strong>
                         {activeVariant ? (
                           <span className="selected-size-chip">
-                            Size {activeVariant.size}
+                            ✓ Size {activeVariant.size}
                           </span>
                         ) : (
                           <span className="unselected-size-hint">
@@ -594,7 +645,7 @@ export default function BillingView() {
                         )}
                       </div>
                       <span className="tax-hint">
-                        GST: {prod.tax_rate ?? 5}% saved
+                        GST: {prod.tax_rate ?? 5}%
                       </span>
                     </div>
 
@@ -603,8 +654,8 @@ export default function BillingView() {
                       <div className="sizes-caption-row">
                         <span className="sizes-caption">
                           {activeVariant
-                            ? `Selected: Size ${activeVariant.size} (${activeVariant.stock} pairs)`
-                            : "Select Size to View Price:"}
+                            ? `Selected Size ${activeVariant.size} (${activeVariant.stock} in stock)`
+                            : "Tap size to select:"}
                         </span>
                         {activeVariant && (
                           <span className="deselect-hint">Click again to deselect</span>
@@ -630,7 +681,7 @@ export default function BillingView() {
                             >
                               <span className="size-num">{v.size}</span>
                               <span className="size-stock">
-                                {inStock ? `(${v.stock})` : "0"}
+                                {inStock ? `${v.stock}` : "0"}
                               </span>
                             </button>
                           );
@@ -698,17 +749,17 @@ export default function BillingView() {
           </div>
         </div>
 
-        {/* Customer Details Strip (Issue 2: Required & Optional with validation) */}
-        <div className="customer-strip">
-          <div className="customer-strip-header">
-            <div className="customer-strip-title">
-              <User size={13} />
-              <span>Customer Details</span>
+        {/* Customer Details Card (Issue 2: Perfectly arranged & aligned) */}
+        <div className="pos-customer-card">
+          <div className="pos-customer-header">
+            <div className="customer-header-title">
+              <User size={13} style={{ color: "#c5a15c" }} />
+              <strong>Customer Details</strong>
             </div>
-            <div className="customer-toggle-group">
+            <div className="customer-header-actions">
               <label
                 className="customer-mandatory-toggle"
-                title="When checked, customer phone number is required before billing"
+                title="When checked, customer 10-digit mobile number is mandatory before checkout"
               >
                 <input
                   type="checkbox"
@@ -722,7 +773,7 @@ export default function BillingView() {
               </label>
               <button
                 type="button"
-                className="btn-chip-walkin"
+                className="btn-quick-walkin"
                 onClick={() => {
                   setCustomerName("Walk-in Customer");
                   setCustomerPhone("");
@@ -735,8 +786,8 @@ export default function BillingView() {
             </div>
           </div>
 
-          <div className="customer-inputs-grid">
-            <div className="customer-input-box">
+          <div className="pos-customer-inputs-grid">
+            <div className="customer-field-box">
               <input
                 type="text"
                 placeholder={isCustomerRequired ? "Customer Name *" : "Customer Name (optional)"}
@@ -747,7 +798,7 @@ export default function BillingView() {
                 }}
               />
             </div>
-            <div className="customer-input-box phone-box">
+            <div className="customer-field-box">
               <input
                 type="tel"
                 maxLength={10}
@@ -773,7 +824,9 @@ export default function BillingView() {
         <div className="cart-items-wrapper">
           {cart.length === 0 ? (
             <div className="cart-empty">
-              <ShoppingCart size={32} />
+              <div className="cart-empty-circle">
+                <ShoppingCart size={28} />
+              </div>
               <strong>Your bill is empty</strong>
               <span>Select footwear sizes or scan barcodes to begin billing.</span>
             </div>
@@ -1050,33 +1103,37 @@ export default function BillingView() {
                     <th>Barcode</th>
                     <th style={{ textAlign: "right" }}>Price</th>
                     <th style={{ textAlign: "center" }}>Stock</th>
-                    <th style={{ textAlign: "center" }}>Scan Test</th>
+                    <th style={{ textAlign: "center" }}>Quick Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {products.flatMap((prod) =>
-                    prod.variants.map((v) => (
+                  {products.map((prod) =>
+                    prod.variants?.map((v) => (
                       <tr key={v.id}>
                         <td>
                           <strong>{prod.name}</strong>
-                          <div className="sub-text">
-                            {prod.brand} • {prod.article_no}
-                          </div>
+                          <span className="sub-text" style={{ marginLeft: "5px" }}>
+                            ({prod.article_no})
+                          </span>
                         </td>
                         <td style={{ textAlign: "center" }}>
-                          <span className="receipt-size-badge">{v.size}</span>
+                          <span className="size-badge-bold">Sz {v.size}</span>
                         </td>
                         <td>{v.color}</td>
                         <td>
-                          <span style={{ fontFamily: "monospace", letterSpacing: "1px", fontWeight: 700 }}>
-                            {v.barcode || "—"}
-                          </span>
+                          <code style={{ fontSize: "11px", color: "#1e3a8a", fontWeight: 700 }}>
+                            {v.barcode}
+                          </code>
                         </td>
-                        <td style={{ textAlign: "right" }}>
+                        <td style={{ textAlign: "right", fontWeight: 600 }}>
                           {formatINR(v.selling_price)}
                         </td>
                         <td style={{ textAlign: "center" }}>
-                          <span className={`stock-badge ${(v.stock || 0) <= 0 ? "out" : (v.stock || 0) <= 3 ? "low" : "ok"}`}>
+                          <span
+                            className={`stock-badge ${
+                              (v.stock || 0) === 0 ? "out" : (v.stock || 0) <= 3 ? "low" : "ok"
+                            }`}
+                          >
                             {v.stock || 0}
                           </span>
                         </td>
@@ -1084,13 +1141,21 @@ export default function BillingView() {
                           <button
                             type="button"
                             className="btn-tiny"
+                            style={{ background: "#f0fdf4", color: "#16a34a", borderColor: "#bbf7d0" }}
                             disabled={(v.stock || 0) <= 0}
                             onClick={() => {
-                              handleBarcodeProcess(v.barcode);
+                              playBeep();
+                              addToCart(v, prod);
+                              setScanToast({
+                                name: prod.name,
+                                size: v.size,
+                                price: v.selling_price,
+                                barcode: v.barcode,
+                              });
                               setIsBarcodeModalOpen(false);
                             }}
                           >
-                            + Scan Add
+                            Scan / Add
                           </button>
                         </td>
                       </tr>
@@ -1100,13 +1165,17 @@ export default function BillingView() {
               </table>
             </div>
 
-            <div className="modal-footer">
+            <div className="modal-footer" style={{ justifyContent: "space-between" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "11px", color: "#64748b" }}>
+                <ScanLine size={14} style={{ color: "#10b981" }} />
+                <span>Simulate scanner: Clicking "Scan / Add" beeps and adds the size directly into bill.</span>
+              </div>
               <button
                 type="button"
                 className="btn-secondary"
                 onClick={() => setIsBarcodeModalOpen(false)}
               >
-                Close
+                Close Directory
               </button>
             </div>
           </div>
