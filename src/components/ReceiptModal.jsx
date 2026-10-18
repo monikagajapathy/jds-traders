@@ -334,7 +334,7 @@ export default function ReceiptModal() {
 
               {/* Amount in Words */}
               <div className="statement-amount-words">
-                <span className="words-caption">Invoice Amount in Words:</span>
+                <span className="words-caption">Invoice Amount in Words: </span>
                 <span className="words-text">{numberToWordsINR(grandTotal)}</span>
               </div>
             </div>
@@ -342,28 +342,28 @@ export default function ReceiptModal() {
             {/* Right: Net Financial Totals */}
             <div className="statement-financial-totals-box">
               <div className="stat-tot-row">
-                <span>Total Items / Pairs:</span>
-                <strong>
+                <span className="tot-lbl">Total Items / Pairs:</span>
+                <strong className="tot-val">
                   {recentInvoice.items?.reduce((s, it) => s + (Number(it.quantity) || 1), 0) || 1} pairs
                 </strong>
               </div>
               <div className="stat-tot-row">
-                <span>Gross Subtotal:</span>
-                <span>{formatINR(invoiceSubtotal)}</span>
+                <span className="tot-lbl">Gross Subtotal:</span>
+                <span className="tot-val">{formatINR(invoiceSubtotal)}</span>
               </div>
               {discountAmount > 0 && (
                 <div className="stat-tot-row discount">
-                  <span>Bill Discount:</span>
-                  <span>- {formatINR(discountAmount)}</span>
+                  <span className="tot-lbl">Bill Discount:</span>
+                  <span className="tot-val">- {formatINR(discountAmount)}</span>
                 </div>
               )}
               <div className="stat-tot-row">
-                <span>Total Taxable Value:</span>
-                <span>{formatINR(taxableAmount)}</span>
+                <span className="tot-lbl">Total Taxable Value:</span>
+                <span className="tot-val">{formatINR(taxableAmount)}</span>
               </div>
               <div className="stat-tot-row">
-                <span>Total GST (CGST + SGST):</span>
-                <span>{formatINR(taxAmount)}</span>
+                <span className="tot-lbl">Total GST (CGST + SGST):</span>
+                <span className="tot-val">{formatINR(taxAmount)}</span>
               </div>
 
               <div className="stat-grand-total-row">
@@ -375,12 +375,12 @@ export default function ReceiptModal() {
               {recentInvoice.payment_method === "Split" && recentInvoice.payment_split && (
                 <div className="stat-split-card">
                   <div className="stat-split-row">
-                    <span>Cash Received:</span>
-                    <strong>{formatINR(recentInvoice.payment_split.cash || 0)}</strong>
+                    <span className="split-lbl">Cash Received:</span>
+                    <strong className="split-val">{formatINR(recentInvoice.payment_split.cash || 0)}</strong>
                   </div>
                   <div className="stat-split-row">
-                    <span>UPI Received:</span>
-                    <strong>{formatINR(recentInvoice.payment_split.upi || 0)}</strong>
+                    <span className="split-lbl">UPI Received:</span>
+                    <strong className="split-val">{formatINR(recentInvoice.payment_split.upi || 0)}</strong>
                   </div>
                 </div>
               )}

@@ -357,21 +357,20 @@ export default function BillingView() {
     setSplitCash(Math.max(0, Math.round((grandTotal - upiVal) * 100) / 100));
   };
 
-  // Checkout with validation for Required / Optional Customer Details (Issue 2)
+  // Checkout with validation: Customer details are strictly mandatory by default (Issue 3)
   const handleCheckout = () => {
     if (cart.length === 0) return;
 
-    if (isCustomerRequired) {
-      if (!customerPhone.trim() || customerPhone.trim().replace(/\D/g, "").length < 10) {
-        setCustomerError(
-          "Customer 10-digit mobile number is required before billing (or uncheck 'Mandatory Phone')."
-        );
-        return;
-      }
-      if (!customerName.trim()) {
-        setCustomerError("Customer Name is required before billing.");
-        return;
-      }
+    if (!customerName.trim()) {
+      setCustomerError("Customer Name is mandatory before billing.");
+      return;
+    }
+    const cleanPhone = customerPhone.trim().replace(/\D/g, "");
+    if (!cleanPhone || cleanPhone.length < 10) {
+      setCustomerError(
+        "Customer 10-digit mobile number is mandatory (or click 'Walk-in Auto-fill')."
+      );
+      return;
     }
 
     setCustomerError("");
@@ -771,39 +770,26 @@ export default function BillingView() {
           </div>
         </div>
 
-        {/* Customer Details Card (Issue 2: Perfectly arranged & aligned) */}
+        {/* Customer Details Card: Mandatory by Default (Issue 3) */}
         <div className="pos-customer-card">
           <div className="pos-customer-header">
             <div className="customer-header-title">
               <User size={13} style={{ color: "#c5a15c" }} />
               <strong>Customer Details</strong>
+              <span className="customer-mandatory-badge">Mandatory *</span>
             </div>
             <div className="customer-header-actions">
-              <label
-                className="customer-mandatory-toggle"
-                title="When checked, customer 10-digit mobile number is mandatory before checkout"
-              >
-                <input
-                  type="checkbox"
-                  checked={isCustomerRequired}
-                  onChange={(e) => {
-                    setIsCustomerRequired(e.target.checked);
-                    setCustomerError("");
-                  }}
-                />
-                <span>Mandatory Phone</span>
-              </label>
               <button
                 type="button"
                 className="btn-quick-walkin"
                 onClick={() => {
                   setCustomerName("Walk-in Customer");
-                  setCustomerPhone("");
+                  setCustomerPhone("9999999999");
                   setCustomerError("");
                 }}
-                title="Fill default Walk-in Customer"
+                title="Auto-fill Walk-in Customer (Name: Walk-in, Mobile: 9999999999)"
               >
-                Walk-in
+                ⚡ Walk-in Auto-fill
               </button>
             </div>
           </div>
@@ -812,7 +798,8 @@ export default function BillingView() {
             <div className="customer-field-box">
               <input
                 type="text"
-                placeholder={isCustomerRequired ? "Customer Name *" : "Customer Name (optional)"}
+                required
+                placeholder="Customer Name *"
                 value={customerName}
                 onChange={(e) => {
                   setCustomerName(e.target.value);
@@ -824,7 +811,8 @@ export default function BillingView() {
               <input
                 type="tel"
                 maxLength={10}
-                placeholder={isCustomerRequired ? "Mobile (10 digits) *" : "Mobile (optional)"}
+                required
+                placeholder="Mobile (10 digits) *"
                 value={customerPhone}
                 onChange={(e) => {
                   setCustomerPhone(e.target.value.replace(/\D/g, ""));
@@ -1017,33 +1005,39 @@ export default function BillingView() {
 
               <div className="split-inputs-grid">
                 <div className="split-field">
-                  <label>
-                    <Banknote size={12} /> Cash Amount (₹)
+                  <label className="split-label">
+                    <Banknote size={12} style={{ color: "#16a34a" }} /> Cash Amount
                   </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max={grandTotal}
-                    step="any"
-                    value={splitCash || ""}
-                    onChange={(e) => handleCashChange(e.target.value)}
-                    placeholder="0"
-                  />
+                  <div className="split-input-box">
+                    <span className="split-curr-sign">₹</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max={grandTotal}
+                      step="any"
+                      value={splitCash || ""}
+                      onChange={(e) => handleCashChange(e.target.value)}
+                      placeholder="0.00"
+                    />
+                  </div>
                 </div>
 
                 <div className="split-field">
-                  <label>
-                    <QrCode size={12} /> UPI Amount (₹)
+                  <label className="split-label">
+                    <QrCode size={12} style={{ color: "#2563eb" }} /> UPI Amount
                   </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max={grandTotal}
-                    step="any"
-                    value={splitUpi || ""}
-                    onChange={(e) => handleUpiChange(e.target.value)}
-                    placeholder="0"
-                  />
+                  <div className="split-input-box">
+                    <span className="split-curr-sign">₹</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max={grandTotal}
+                      step="any"
+                      value={splitUpi || ""}
+                      onChange={(e) => handleUpiChange(e.target.value)}
+                      placeholder="0.00"
+                    />
+                  </div>
                 </div>
               </div>
 

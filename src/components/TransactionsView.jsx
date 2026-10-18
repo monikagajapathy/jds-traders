@@ -92,8 +92,8 @@ export default function TransactionsView() {
       // Payment Filter
       if (paymentFilter !== "All") {
         if (paymentFilter === "Split" && s.payment_method !== "Split") return false;
-        if (paymentFilter === "Cash" && s.payment_method !== "Cash" && !(s.payment_method === "Split" && (s.payment_split?.cash || 0) > 0)) return false;
-        if (paymentFilter === "UPI" && s.payment_method !== "UPI" && !(s.payment_method === "Split" && (s.payment_split?.upi || 0) > 0)) return false;
+        if (paymentFilter === "Cash" && s.payment_method !== "Cash") return false;
+        if (paymentFilter === "UPI" && s.payment_method !== "UPI") return false;
         if (paymentFilter === "Card" && s.payment_method !== "Card") return false;
       }
 
@@ -103,46 +103,55 @@ export default function TransactionsView() {
       }
 
       // Staff Filter (for Admin Accountability)
-      if (staffFilter !== "All" && (s.billed_by !== staffFilter)) {
-        return false;
+      if (staffFilter !== "All") {
+        const staffName = (s.billed_by || s.user_name || "").toLowerCase().trim();
+        const filterName = staffFilter.toLowerCase().trim();
+        if (staffName !== filterName) {
+          return false;
+        }
       }
 
       // Date Filter
       if (dateFilter !== "All") {
         const saleDate = new Date(s.created_at);
-        const now = new Date();
-        if (dateFilter === "Today") {
-          if (saleDate.toDateString() !== now.toDateString()) return false;
-        } else if (dateFilter === "Week") {
-          const sevenDaysAgo = new Date();
-          sevenDaysAgo.setDate(now.getDate() - 7);
-          if (saleDate < sevenDaysAgo) return false;
-        } else if (dateFilter === "Month") {
-          if (
-            saleDate.getMonth() !== now.getMonth() ||
-            saleDate.getFullYear() !== now.getFullYear()
-          ) {
-            return false;
+        if (!isNaN(saleDate.getTime())) {
+          const now = new Date();
+          if (dateFilter === "Today") {
+            if (saleDate.toDateString() !== now.toDateString()) return false;
+          } else if (dateFilter === "Week") {
+            const sevenDaysAgo = new Date();
+            sevenDaysAgo.setDate(now.getDate() - 7);
+            sevenDaysAgo.setHours(0, 0, 0, 0);
+            if (saleDate < sevenDaysAgo) return false;
+          } else if (dateFilter === "Month") {
+            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
+            if (saleDate < startOfMonth) return false;
           }
         }
       }
 
       // Query Search
-      if (!query.trim()) return true;
-      const q = query.toLowerCase().trim();
-      return (
-        s.invoice_no?.toLowerCase().includes(q) ||
-        s.customer?.name?.toLowerCase().includes(q) ||
-        s.customer?.phone?.includes(q) ||
-        s.items?.some(
-          (item) =>
-            item.product_name?.toLowerCase().includes(q) ||
-            item.article_no?.toLowerCase().includes(q) ||
-            item.brand?.toLowerCase().includes(q)
-        )
-      );
+      if (query.trim()) {
+        const q = query.toLowerCase().trim();
+        const matches =
+          s.invoice_no?.toLowerCase().includes(q) ||
+          s.customer?.name?.toLowerCase().includes(q) ||
+          s.customer?.phone?.includes(q) ||
+          s.billed_by?.toLowerCase().includes(q) ||
+          s.payment_method?.toLowerCase().includes(q) ||
+          s.items?.some(
+            (item) =>
+              item.product_name?.toLowerCase().includes(q) ||
+              item.article_no?.toLowerCase().includes(q) ||
+              item.brand?.toLowerCase().includes(q) ||
+              String(item.size || "").toLowerCase().includes(q)
+          );
+        if (!matches) return false;
+      }
+
+      return true;
     });
-  }, [sales, paymentFilter, statusFilter, dateFilter, query]);
+  }, [sales, paymentFilter, statusFilter, dateFilter, staffFilter, query]);
 
   const handleViewReceipt = (sale) => {
     setRecentInvoice(sale);
@@ -290,7 +299,50 @@ export default function TransactionsView() {
                 ))}
               </select>
             )}
+
+            {(query || dateFilter !== "All" || paymentFilter !== "All" || statusFilter !== "All" || staffFilter !== "All") && (
+              <button
+                type="button"
+                className="btn-tiny"
+                style={{
+                  background: "#fef2f2",
+                  color: "#dc2626",
+                  borderColor: "#fecaca",
+                  height: "42px",
+                  padding: "0 12px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  fontWeight: 600,
+                  fontSize: "12px",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                }}
+                onClick={() => {
+                  setQuery("");
+                  setDateFilter("All");
+                  setPaymentFilter("All");
+                  setStatusFilter("All");
+                  setStaffFilter("All");
+                }}
+                title="Reset all search queries and dropdown filters"
+              >
+                <RotateCcw size={13} /> Reset Filters
+              </button>
+            )}
           </div>
+        </div>
+
+        {/* Filter Results Info Bar */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "10px", fontSize: "11.5px", color: "#64748b" }}>
+          <span>
+            Showing <strong>{filteredSales.length}</strong> of <strong>{sales.length}</strong> tax transactions
+          </span>
+          {(query || dateFilter !== "All" || paymentFilter !== "All" || statusFilter !== "All" || staffFilter !== "All") && (
+            <span style={{ color: "#c5a15c", fontWeight: 600 }}>
+              • Filters Active
+            </span>
+          )}
         </div>
       </div>
 

@@ -27,7 +27,56 @@ import {
   Legend,
 } from "recharts";
 import { useStore } from "../context/StoreContext.jsx";
-import { formatINR } from "../utils/calculations.js";
+// Custom Tooltip component: Clearly labels Sales Revenue vs Gross Profit (Issue 2)
+function CustomDailyReportTooltip({ active, payload, label }) {
+  if (!active || !payload || !payload.length) return null;
+
+  const revObj = payload.find((p) => p.dataKey === "revenue");
+  const profitObj = payload.find((p) => p.dataKey === "profit");
+
+  const revenueVal = revObj ? Number(revObj.value) || 0 : 0;
+  const profitVal = profitObj ? Number(profitObj.value) || 0 : 0;
+  const marginPct = revenueVal > 0 ? Math.round((profitVal / revenueVal) * 100) : 0;
+
+  return (
+    <div
+      style={{
+        backgroundColor: "#101c35",
+        border: "1px solid #c5a15c",
+        borderRadius: "8px",
+        padding: "10px 14px",
+        color: "#ffffff",
+        boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
+        fontSize: "12px",
+        minWidth: "220px",
+      }}
+    >
+      <div style={{ fontWeight: 800, color: "#f1d99d", marginBottom: "8px", borderBottom: "1px solid rgba(197,161,92,0.3)", paddingBottom: "4px" }}>
+        📅 {label}
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "5px" }}>
+        <span style={{ display: "flex", alignItems: "center", gap: "6px", color: "#e2e8f0" }}>
+          <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#c5a15c", display: "inline-block" }} />
+          Total Sales Revenue:
+        </span>
+        <strong style={{ color: "#f1d99d", marginLeft: "10px" }}>{formatINR(revenueVal)}</strong>
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+        <span style={{ display: "flex", alignItems: "center", gap: "6px", color: "#e2e8f0" }}>
+          <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#38bdf8", display: "inline-block" }} />
+          Estimated Gross Profit:
+        </span>
+        <strong style={{ color: "#38bdf8", marginLeft: "10px" }}>{formatINR(profitVal)}</strong>
+      </div>
+      {revenueVal > 0 && (
+        <div style={{ marginTop: "6px", paddingTop: "5px", borderTop: "1px dashed rgba(255,255,255,0.15)", fontSize: "11px", color: "#94a3b8", display: "flex", justifyContent: "space-between" }}>
+          <span>Gross Margin:</span>
+          <span style={{ color: "#4ade80", fontWeight: 700 }}>{marginPct}% of Revenue</span>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function ReportsView() {
   const { sales, products, settings } = useStore();
@@ -489,8 +538,8 @@ export default function ReportsView() {
             <div className="panel chart-panel">
               <div className="panel-heading">
                 <div>
-                  <h2>Revenue vs Estimated Profit</h2>
-                  <p>Daily store billing performance</p>
+                  <h2>Sales Revenue vs Estimated Profit</h2>
+                  <p>Daily Sales Revenue (total billed) vs Estimated Gross Profit (sales minus shoe cost)</p>
                 </div>
                 <span className="small-tag">REVENUE & PROFIT</span>
               </div>
@@ -505,23 +554,20 @@ export default function ReportsView() {
                       tickLine={false}
                       tickFormatter={(v) => `₹${v}`}
                     />
-                    <Tooltip
-                      formatter={(val, name, item) => [
-                        formatINR(val),
-                        item?.dataKey === "revenue" || name === "Revenue"
-                          ? "Revenue"
-                          : "Gross Profit",
-                      ]}
-                      contentStyle={{
-                        backgroundColor: "#101c35",
-                        borderColor: "#c5a15c",
-                        color: "#fff",
-                        borderRadius: "8px",
-                      }}
-                    />
+                    <Tooltip content={<CustomDailyReportTooltip />} />
                     <Legend />
-                    <Bar dataKey="revenue" name="Revenue" fill="#c5a15c" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="profit" name="Gross Profit" fill="#2a6f97" radius={[4, 4, 0, 0]} />
+                    <Bar
+                      dataKey="revenue"
+                      name="Total Sales Revenue (₹)"
+                      fill="#c5a15c"
+                      radius={[4, 4, 0, 0]}
+                    />
+                    <Bar
+                      dataKey="profit"
+                      name="Estimated Gross Profit (₹)"
+                      fill="#38bdf8"
+                      radius={[4, 4, 0, 0]}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               </div>

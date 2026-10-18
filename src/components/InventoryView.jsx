@@ -79,17 +79,12 @@ export default function InventoryView() {
     }
   }, [highlightTarget, products]);
 
-  // Modals state
+  // Modals state: Combined Edit & Stock Adjustment (Issue 4)
   const [isAddOpen, setIsAddOpen] = useState(false);
-  const [isAdjustOpen, setIsAdjustOpen] = useState(false);
-  const [adjustProduct, setAdjustProduct] = useState(null);
-  const [multiSizeAdjustments, setMultiSizeAdjustments] = useState([]);
-  const [adjustReason, setAdjustReason] = useState("Restock Delivery");
-  const [adjustNote, setAdjustNote] = useState("");
-
-  // Edit Product Modal State (Issue 9)
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingProd, setEditingProd] = useState(null);
+  const [editingAdjustReason, setEditingAdjustReason] = useState("Restock Delivery");
+  const [editingAdjustNote, setEditingAdjustNote] = useState("");
 
   // Add new size state
   const [isAddSizeOpen, setIsAddSizeOpen] = useState(false);
@@ -146,7 +141,7 @@ export default function InventoryView() {
     setSizeTargetProduct(null);
   };
 
-  // Open Edit Product Modal (Issue 9)
+  // Open Combined Edit Product & Stock Adjustment Modal (Issue 4)
   const handleOpenEditProduct = (prod) => {
     setEditingProd({
       id: prod.id,
@@ -163,11 +158,14 @@ export default function InventoryView() {
         cost_price: v.cost_price || 0,
         selling_price: v.selling_price || 0,
         stock: v.stock || 0,
+        initialStock: v.stock || 0,
         barcode: v.barcode || "",
         sku: v.sku || `JDS-${prod.article_no}-${v.size}`,
         reorder_level: v.reorder_level || 3,
       })),
     });
+    setEditingAdjustReason("Restock Delivery");
+    setEditingAdjustNote("");
     setIsEditOpen(true);
   };
 
@@ -178,7 +176,11 @@ export default function InventoryView() {
       alert("Please provide both Article Code and Product Name.");
       return;
     }
-    updateProduct(editingProd.id, editingProd);
+    updateProduct(editingProd.id, {
+      ...editingProd,
+      reason: editingAdjustReason,
+      note: editingAdjustNote,
+    });
     setIsEditOpen(false);
     setEditingProd(null);
   };
@@ -316,76 +318,36 @@ export default function InventoryView() {
     });
   }, [products, selectedCat, stockFilter, query, lowStockThreshold, thresholdMode]);
 
-  // Open Multi-Size Adjust Modal for a product (all sizes available to adjust at once)
-  const handleOpenAdjust = (prod) => {
-    setAdjustProduct(prod);
-    setMultiSizeAdjustments(
-      prod.variants.map((v) => ({
-        variantId: v.id,
-        size: v.size,
-        color: v.color || "Standard",
-        sku: v.sku,
-        currentStock: v.stock || 0,
-        newStock: v.stock || 0,
-      }))
-    );
-    setAdjustReason("Restock Delivery");
-    setAdjustNote("");
-    setIsAdjustOpen(true);
+  // Stock Adjustment Handlers inside Combined Edit Modal (Issue 4)
+  const handleStepEditingStock = (idx, step) => {
+    if (!editingProd) return;
+    const updated = [...editingProd.variants];
+    const cur = Number(updated[idx].stock) || 0;
+    updated[idx] = { ...updated[idx], stock: Math.max(0, cur + step) };
+    setEditingProd({ ...editingProd, variants: updated });
   };
 
-  const handleUpdateSizeStock = (variantId, newQty) => {
-    setMultiSizeAdjustments((prev) =>
-      prev.map((item) =>
-        item.variantId === variantId
-          ? { ...item, newStock: Math.max(0, Number(newQty) || 0) }
-          : item
-      )
-    );
+  const handleBulkStepEditing = (step) => {
+    if (!editingProd) return;
+    const updated = editingProd.variants.map((v) => ({
+      ...v,
+      stock: Math.max(0, (Number(v.stock) || 0) + step),
+    }));
+    setEditingProd({ ...editingProd, variants: updated });
   };
 
-  const handleStepSizeStock = (variantId, step) => {
-    setMultiSizeAdjustments((prev) =>
-      prev.map((item) =>
-        item.variantId === variantId
-          ? { ...item, newStock: Math.max(0, item.newStock + step) }
-          : item
-      )
-    );
-  };
-
-  const handleBulkStepAll = (step) => {
-    setMultiSizeAdjustments((prev) =>
-      prev.map((item) => ({
-        ...item,
-        newStock: Math.max(0, item.newStock + step),
-      }))
-    );
-  };
-
-  const handleResetAdjustments = () => {
-    if (!adjustProduct) return;
-    setMultiSizeAdjustments(
-      adjustProduct.variants.map((v) => ({
-        variantId: v.id,
-        size: v.size,
-        color: v.color || "Standard",
-        sku: v.sku,
-        currentStock: v.stock || 0,
-        newStock: v.stock || 0,
-      }))
-    );
-  };
-
-  const handleSaveBulkAdjust = () => {
-    if (!adjustProduct) return;
-    bulkAdjustStock(
-      adjustProduct.id,
-      multiSizeAdjustments,
-      adjustReason,
-      adjustNote
-    );
-    setIsAdjustOpen(false);
+  const handleResetEditingStock = () => {
+    if (!editingProd) return;
+    const original = products.find((p) => p.id === editingProd.id);
+    if (!original) return;
+    const updated = editingProd.variants.map((v) => {
+      const origV = original.variants?.find((ov) => ov.id === v.id);
+      return {
+        ...v,
+        stock: origV ? origV.stock : v.stock,
+      };
+    });
+    setEditingProd({ ...editingProd, variants: updated });
   };
 
   const handleCreateProduct = (e) => {
@@ -725,8 +687,8 @@ export default function InventoryView() {
                               <button
                                 key={v.id}
                                 className={`size-inventory-pill ${isSizeLow ? "low" : ""}`}
-                                onClick={() => handleOpenAdjust(prod)}
-                                title={`Size ${v.size} (${v.color || "Standard"}): ${v.stock} pairs ${isSizeLow ? "(LOW STOCK)" : ""} - Click to adjust`}
+                                onClick={() => handleOpenEditProduct(prod)}
+                                title={`Size ${v.size} (${v.color || "Standard"}): ${v.stock} pairs ${isSizeLow ? "(LOW STOCK)" : ""} - Click to edit & adjust`}
                               >
                                 <span className="s-size">{v.size}</span>
                                 <span className="s-qty">{v.stock}</span>
@@ -770,25 +732,17 @@ export default function InventoryView() {
                         </span>
                       </td>
 
-                      {/* Actions Column (Issue 9: Edit button added) */}
+                      {/* Actions Column (Combined Edit & Adjust - Issue 4) */}
                       <td style={{ textAlign: "center" }}>
                         <div style={{ display: "flex", gap: "6px", justifyContent: "center", alignItems: "center" }}>
                           <button
                             type="button"
                             className="btn-tiny btn-edit-action"
-                            style={{ color: "#0284c7", borderColor: "#bae6fd", background: "#f0f9ff", fontWeight: 600 }}
+                            style={{ color: "#0284c7", borderColor: "#bae6fd", background: "#f0f9ff", fontWeight: 700, padding: "4px 10px" }}
                             onClick={() => handleOpenEditProduct(prod)}
-                            title="Edit product name, selling price, cost price, and barcodes (Issue 9)"
+                            title="Edit product details, selling prices, and adjust size stock"
                           >
                             <Edit2 size={12} /> Edit
-                          </button>
-                          <button
-                            type="button"
-                            className="btn-tiny"
-                            onClick={() => handleOpenAdjust(prod)}
-                            title="Adjust All Sizes Stock"
-                          >
-                            Adjust
                           </button>
                           <button
                             type="button"
@@ -913,24 +867,33 @@ export default function InventoryView() {
               </div>
 
               {/* Editable Sizes & Pricing Table (Issue 9) */}
+              {/* Editable Sizes, Pricing & Stock Adjustment Table (Combined - Issue 4) */}
               <div className="edit-variants-container" style={{ marginTop: "16px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px", flexWrap: "wrap", gap: "8px" }}>
                   <div>
                     <h4 style={{ margin: 0, fontSize: "13px", fontWeight: 700, color: "#1e293b" }}>
-                      Sizes, Selling Prices & Barcodes
+                      Sizes, Pricing & Stock Adjustment
                     </h4>
                     <span style={{ fontSize: "11px", color: "#64748b" }}>
-                      Edit individual selling prices, cost prices, stock counts, and barcodes for each size.
+                      Adjust stock with steppers or direct input, set prices, and manage barcodes.
                     </span>
                   </div>
-                  <button
-                    type="button"
-                    className="btn-tiny"
-                    style={{ background: "#f0fdf4", color: "#16a34a", borderColor: "#bbf7d0", fontWeight: 600 }}
-                    onClick={handleAddVariantToEditing}
-                  >
-                    <Plus size={13} /> Add Size
-                  </button>
+                  <div style={{ display: "flex", gap: "5px", alignItems: "center" }}>
+                    <button type="button" className="btn-chip" onClick={() => handleBulkStepEditing(1)}>+1 All</button>
+                    <button type="button" className="btn-chip" onClick={() => handleBulkStepEditing(5)}>+5 All (Box)</button>
+                    <button type="button" className="btn-chip danger" onClick={() => handleBulkStepEditing(-1)}>-1 All</button>
+                    <button type="button" className="btn-chip" onClick={handleResetEditingStock} title="Reset stock changes">
+                      <RotateCcw size={11} /> Reset
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-tiny"
+                      style={{ background: "#f0fdf4", color: "#16a34a", borderColor: "#bbf7d0", fontWeight: 700 }}
+                      onClick={handleAddVariantToEditing}
+                    >
+                      <Plus size={13} /> Add Size
+                    </button>
+                  </div>
                 </div>
 
                 <div className="table-responsive" style={{ maxHeight: "280px", overflowY: "auto", border: "1px solid #e2e8f0", borderRadius: "6px" }}>
@@ -941,7 +904,7 @@ export default function InventoryView() {
                         <th style={{ width: "100px" }}>Color</th>
                         <th style={{ width: "110px", textAlign: "right" }}>Cost (₹)</th>
                         <th style={{ width: "120px", textAlign: "right" }}>Selling Price (₹)</th>
-                        <th style={{ width: "95px", textAlign: "center" }}>Stock</th>
+                        <th style={{ width: "115px", textAlign: "center" }}>Stock (Pairs)</th>
                         <th>Barcode (EAN/UPC)</th>
                         <th style={{ width: "40px", textAlign: "center" }}></th>
                       </tr>
@@ -987,15 +950,33 @@ export default function InventoryView() {
                               style={{ textAlign: "right", fontWeight: 700, color: "#0f172a" }}
                             />
                           </td>
-                          <td>
-                            <input
-                              type="number"
-                              min="0"
-                              className="table-input"
-                              value={v.stock}
-                              onChange={(e) => handleEditingVariantChange(idx, "stock", Number(e.target.value))}
-                              style={{ textAlign: "center" }}
-                            />
+                          <td style={{ textAlign: "center" }}>
+                            <div style={{ display: "inline-flex", alignItems: "center", border: "1.5px solid #cbd5e1", borderRadius: "5px", overflow: "hidden", background: "#ffffff" }}>
+                              <button
+                                type="button"
+                                style={{ border: 0, background: "#f1f5f9", width: "22px", height: "26px", cursor: "pointer", fontWeight: 700, color: "#475569" }}
+                                onClick={() => handleStepEditingStock(idx, -1)}
+                                title="Decrease stock by 1"
+                              >
+                                -
+                              </button>
+                              <input
+                                type="number"
+                                min="0"
+                                className="table-input"
+                                value={v.stock}
+                                onChange={(e) => handleEditingVariantChange(idx, "stock", Math.max(0, Number(e.target.value) || 0))}
+                                style={{ width: "42px", textAlign: "center", border: 0, fontWeight: 700, color: (v.stock || 0) <= 3 ? "#dc2626" : "#0f172a" }}
+                              />
+                              <button
+                                type="button"
+                                style={{ border: 0, background: "#f1f5f9", width: "22px", height: "26px", cursor: "pointer", fontWeight: 700, color: "#475569" }}
+                                onClick={() => handleStepEditingStock(idx, 1)}
+                                title="Increase stock by 1"
+                              >
+                                +
+                              </button>
+                            </div>
                           </td>
                           <td>
                             <div style={{ display: "flex", gap: "4px" }}>
@@ -1039,6 +1020,38 @@ export default function InventoryView() {
                     </tbody>
                   </table>
                 </div>
+
+                {/* Adjustment Reason & Audit Note */}
+                <div style={{ marginTop: "12px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "6px", padding: "10px 12px", display: "grid", gridTemplateColumns: "1.2fr 2fr", gap: "10px" }}>
+                  <div>
+                    <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", display: "block", marginBottom: "4px" }}>
+                      Stock Adjustment Reason (Audit Log)
+                    </label>
+                    <select
+                      value={editingAdjustReason}
+                      onChange={(e) => setEditingAdjustReason(e.target.value)}
+                      style={{ width: "100%", height: "32px", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "11.5px", padding: "0 8px", background: "#fff" }}
+                    >
+                      <option value="Restock Delivery">Restock Delivery / Intake</option>
+                      <option value="Physical Inventory Audit">Physical Inventory Audit Correction</option>
+                      <option value="Damaged / Defect Removal">Damaged / Defective Stock Removal</option>
+                      <option value="Customer Return">Customer Return Restock</option>
+                      <option value="Product Details Edit">General Product & Price Update</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", display: "block", marginBottom: "4px" }}>
+                      Audit Note / Supplier Invoice Ref
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Optional intake note, supplier invoice #, or audit reason..."
+                      value={editingAdjustNote}
+                      onChange={(e) => setEditingAdjustNote(e.target.value)}
+                      style={{ width: "100%", height: "32px", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "11.5px", padding: "0 8px", background: "#fff" }}
+                    />
+                  </div>
+                </div>
               </div>
 
               <div className="modal-footer" style={{ marginTop: "20px" }}>
@@ -1050,7 +1063,7 @@ export default function InventoryView() {
                   Cancel
                 </button>
                 <button type="submit" className="btn-primary">
-                  <Check size={16} /> Save Product Changes
+                  <Check size={16} /> Save Product & Stock Updates
                 </button>
               </div>
             </form>
@@ -1230,217 +1243,6 @@ export default function InventoryView() {
         </div>
       )}
 
-      {/* MODAL: MULTI-SIZE STOCK ADJUSTMENT */}
-      {isAdjustOpen && adjustProduct && (
-        <div className="modal-backdrop" onClick={() => setIsAdjustOpen(false)}>
-          <div
-            className="modal-content multi-adjust-modal"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="modal-header">
-              <div>
-                <h3>Stock Adjustment: {adjustProduct.name}</h3>
-                <p>
-                  Article: <strong>{adjustProduct.article_no}</strong> • Brand: {adjustProduct.brand} • {adjustProduct.category}
-                </p>
-              </div>
-              <button
-                className="btn-close"
-                onClick={() => setIsAdjustOpen(false)}
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="multi-adjust-body">
-              {/* Quick Bulk Presets */}
-              <div className="bulk-presets-bar">
-                <span className="bulk-presets-label">Bulk Apply to All Sizes:</span>
-                <div className="delta-presets">
-                  <button
-                    type="button"
-                    className="btn-chip"
-                    onClick={() => handleBulkStepAll(1)}
-                  >
-                    +1 to All Sizes
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-chip"
-                    onClick={() => handleBulkStepAll(5)}
-                  >
-                    +5 to All Sizes (Box)
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-chip"
-                    onClick={() => handleBulkStepAll(10)}
-                  >
-                    +10 to All Sizes
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-chip danger"
-                    onClick={() => handleBulkStepAll(-1)}
-                  >
-                    -1 All
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-chip"
-                    onClick={handleResetAdjustments}
-                    title="Reset to current stock"
-                  >
-                    <RotateCcw size={11} /> Reset
-                  </button>
-                </div>
-              </div>
-
-              {/* Sizes Adjustment Table */}
-              <div className="adjust-sizes-table-wrap">
-                <table className="custom-table adjust-table">
-                  <thead>
-                    <tr>
-                      <th style={{ width: "90px" }}>Size</th>
-                      <th>Color / SKU</th>
-                      <th style={{ textAlign: "center", width: "90px" }}>Current</th>
-                      <th style={{ textAlign: "center", width: "170px" }}>Adjust Quantity</th>
-                      <th style={{ textAlign: "center", width: "90px" }}>Change</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {multiSizeAdjustments.map((item) => {
-                      const delta = item.newStock - item.currentStock;
-                      return (
-                        <tr key={item.variantId}>
-                          <td>
-                            <span className="size-badge-bold">Size {item.size}</span>
-                          </td>
-                          <td>
-                            <span style={{ fontSize: "11px", color: "#475569" }}>
-                              {item.color}
-                            </span>
-                            {item.sku && (
-                              <div className="sub-text" style={{ fontSize: "9px" }}>
-                                {item.sku}
-                              </div>
-                            )}
-                          </td>
-                          <td style={{ textAlign: "center", fontWeight: 600 }}>
-                            {item.currentStock} pairs
-                          </td>
-                          <td style={{ textAlign: "center" }}>
-                            <div className="adjust-qty-control">
-                              <button
-                                type="button"
-                                className="qty-step-btn"
-                                onClick={() => handleStepSizeStock(item.variantId, -1)}
-                              >
-                                -
-                              </button>
-                              <input
-                                type="number"
-                                min="0"
-                                className="adjust-number-input"
-                                value={item.newStock}
-                                onChange={(e) =>
-                                  handleUpdateSizeStock(item.variantId, e.target.value)
-                                }
-                              />
-                              <button
-                                type="button"
-                                className="qty-step-btn"
-                                onClick={() => handleStepSizeStock(item.variantId, 1)}
-                              >
-                                +
-                              </button>
-                            </div>
-                          </td>
-                          <td style={{ textAlign: "center" }}>
-                            <span
-                              className={`delta-badge ${
-                                delta > 0 ? "plus" : delta < 0 ? "minus" : "zero"
-                              }`}
-                            >
-                              {delta > 0 ? `+${delta}` : delta === 0 ? "0" : delta}
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Reason & Note */}
-              <div className="form-grid-2" style={{ marginTop: "16px" }}>
-                <div className="form-field">
-                  <label>Adjustment Reason</label>
-                  <select
-                    value={adjustReason}
-                    onChange={(e) => setAdjustReason(e.target.value)}
-                  >
-                    <option value="Restock Delivery">Restock Delivery / Carton Shipment</option>
-                    <option value="Physical Inventory Audit">Physical Store Audit</option>
-                    <option value="Damaged / Manufacturer Defect">Damaged / Defect Pairs</option>
-                    <option value="Customer Return">Customer Return</option>
-                    <option value="Transfer / Correction">Stock Correction</option>
-                  </select>
-                </div>
-
-                <div className="form-field">
-                  <label>Optional Reference / Note</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Invoice #PO-884 from distributor"
-                    value={adjustNote}
-                    onChange={(e) => setAdjustNote(e.target.value)}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="modal-footer">
-              <div style={{ marginRight: "auto", fontSize: "11px", color: "#64748b" }}>
-                Total Pairs:{" "}
-                <strong>
-                  {multiSizeAdjustments.reduce((sum, it) => sum + it.newStock, 0)} pairs
-                </strong>{" "}
-                (Net Change:{" "}
-                <span style={{ fontWeight: 700, color: multiSizeAdjustments.reduce((sum, it) => sum + (it.newStock - it.currentStock), 0) >= 0 ? "#16a34a" : "#dc2626" }}>
-                  {multiSizeAdjustments.reduce(
-                    (sum, it) => sum + (it.newStock - it.currentStock),
-                    0
-                  ) >= 0
-                    ? `+${multiSizeAdjustments.reduce(
-                        (sum, it) => sum + (it.newStock - it.currentStock),
-                        0
-                      )}`
-                    : multiSizeAdjustments.reduce(
-                        (sum, it) => sum + (it.newStock - it.currentStock),
-                        0
-                      )}
-                </span>
-                )
-              </div>
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() => setIsAdjustOpen(false)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={handleSaveBulkAdjust}
-              >
-                <Check size={16} /> Save All Size Adjustments
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* STOCK AUDIT TRAIL MODAL (ADMIN ACCOUNTABILITY) */}
       {isAuditOpen && (
