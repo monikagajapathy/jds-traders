@@ -2443,11 +2443,11 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: min(340px, 60%);
-  height: min(340px, 60%);
+  width: min(380px, 75%);
+  height: min(380px, 75%);
   pointer-events: none;
   z-index: 0;
-  opacity: 0.055;
+  opacity: 0.12;
   user-select: none;
   display: flex;
   align-items: center;
@@ -2583,13 +2583,15 @@
 
 .statement-title-banner {
   text-align: center;
-  background: #101c35;
-  color: #ffffff;
+  background: transparent;
+  color: #101c35;
+  border-top: 1.5px solid #1e293b;
+  border-bottom: 1.5px solid #1e293b;
   padding: 6px 12px;
   margin: 14px 0;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 700;
+  border-radius: 0;
+  font-size: 11.5px;
+  font-weight: 800;
   letter-spacing: 1.5px;
   position: relative;
   z-index: 1;
@@ -2605,8 +2607,8 @@
 }
 
 .statement-meta-box {
-  background: #fbfcfe;
-  border: 1px solid #e2e8f0;
+  background: transparent;
+  border: 1px solid #cbd5e1;
   border-radius: 6px;
   padding: 12px 14px;
 }
@@ -2614,11 +2616,12 @@
 .meta-box-header {
   font-size: 9.5px;
   font-weight: 800;
-  color: #64748b;
+  color: #475569;
   letter-spacing: 0.8px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid #cbd5e1;
   padding-bottom: 6px;
   margin-bottom: 8px;
+  background: transparent;
 }
 
 .meta-row {
@@ -2645,7 +2648,8 @@
 }
 
 .meta-row .payment-chip {
-  background: #e0f2fe;
+  background: transparent;
+  border: 1px solid #38bdf8;
   color: #0284c7;
   padding: 2px 7px;
   border-radius: 4px;
@@ -2657,21 +2661,23 @@
   margin-bottom: 16px;
   position: relative;
   z-index: 1;
+  background: transparent;
 }
 
 .statement-items-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 11px;
+  background: transparent;
 }
 
 .statement-items-table th {
-  background: #f1f5f9;
-  color: #334155;
+  background: transparent;
+  color: #1e293b;
   font-weight: 700;
   padding: 7px 6px;
-  border-top: 1px solid #cbd5e1;
-  border-bottom: 1px solid #cbd5e1;
+  border-top: 1.5px solid #cbd5e1;
+  border-bottom: 1.5px solid #cbd5e1;
   font-size: 10px;
 }
 
@@ -2679,6 +2685,7 @@
   padding: 7px 6px;
   border-bottom: 1px solid #e2e8f0;
   vertical-align: middle;
+  background: transparent;
 }
 
 .statement-item-name {
@@ -2694,8 +2701,8 @@
 
 .statement-size-pill {
   display: inline-block;
-  background: #f1f5f9;
-  border: 1px solid #cbd5e1;
+  background: transparent;
+  border: 1px solid #94a3b8;
   border-radius: 4px;
   padding: 1px 6px;
   font-weight: 700;
@@ -2705,8 +2712,8 @@
 
 .statement-gst-rate-tag {
   display: inline-block;
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
+  background: transparent;
+  border: 1px solid #16a34a;
   border-radius: 4px;
   padding: 1px 5px;
   font-size: 9.5px;
@@ -2722,8 +2729,8 @@
 }
 
 .statement-financial-totals-box {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: transparent;
+  border: 1px solid #cbd5e1;
   border-radius: 6px;
   padding: 12px 14px;
   display: flex;
@@ -2762,22 +2769,23 @@
   align-items: center;
   margin-top: 6px;
   padding: 8px 10px;
-  background: #101c35;
+  background: transparent;
+  border: 1.5px solid #101c35;
   border-radius: 6px;
-  color: #ffffff;
+  color: #101c35;
 }
 
 .stat-grand-total-row .stat-total-label {
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.8px;
-  color: #cbd5e1;
+  color: #101c35;
 }
 
 .stat-grand-total-row .stat-total-val {
   font-size: 16px;
   font-weight: 900;
-  color: #c5a15c;
+  color: #101c35;
   letter-spacing: -0.3px;
 }
 
@@ -2785,8 +2793,8 @@
 .stat-words-below-total {
   margin-top: 6px;
   padding: 8px 10px;
-  background: #f8fafc;
-  border: 1px dashed #cbd5e1;
+  background: transparent;
+  border: 1px dashed #94a3b8;
   border-radius: 6px;
   font-size: 10.5px;
   line-height: 1.4;
@@ -2808,61 +2816,11 @@
   color: #0f172a;
 }
 
-.stat-tot-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 11.5px;
-  padding: 2px 0;
-}
-
-.stat-tot-row .tot-lbl {
-  color: #64748b;
-  font-weight: 500;
-}
-
-.stat-tot-row .tot-val {
-  color: #0f172a;
-  font-weight: 600;
-  text-align: right;
-}
-
-.stat-tot-row.discount .tot-lbl,
-.stat-tot-row.discount .tot-val {
-  color: #16a34a;
-  font-weight: 700;
-}
-
-.stat-grand-total-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 8px;
-  padding: 8px 10px;
-  background: #101c35;
-  border-radius: 6px;
-  color: #ffffff;
-}
-
-.stat-grand-total-row .stat-total-label {
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.8px;
-  color: #cbd5e1;
-}
-
-.stat-grand-total-row .stat-total-val {
-  font-size: 16px;
-  font-weight: 900;
-  color: #c5a15c;
-  letter-spacing: -0.3px;
-}
-
 .stat-split-card {
   margin-top: 6px;
   padding: 6px 8px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: transparent;
+  border: 1px solid #cbd5e1;
   border-radius: 4px;
   display: flex;
   flex-direction: column;
@@ -3148,14 +3106,35 @@
     min-width: 120px !important;
   }
 
+  .statement-meta-box,
+  .statement-financial-totals-box,
+  .stat-words-below-total,
+  .stat-split-card,
+  .statement-items-table th,
+  .statement-items-table td,
+  .statement-title-banner {
+    background: transparent !important;
+  }
+
+  .stat-grand-total-row {
+    background: transparent !important;
+    border: 1.5px solid #000 !important;
+    color: #000 !important;
+  }
+
+  .stat-grand-total-row .stat-total-label,
+  .stat-grand-total-row .stat-total-val {
+    color: #000 !important;
+  }
+
   .receipt-watermark {
     position: absolute !important;
     top: 50% !important;
     left: 50% !important;
     transform: translate(-50%, -50%) !important;
-    width: 200px !important;
-    height: 200px !important;
-    opacity: 0.04 !important;
+    width: 260px !important;
+    height: 260px !important;
+    opacity: 0.10 !important;
     display: flex !important;
   }
 }
