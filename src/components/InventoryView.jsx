@@ -1771,140 +1771,128 @@ export default function InventoryView() {
                     </div>
                   </div>
 
-                  {/* Color Management */}
+                  {/* Size Breakdown & Quantities */}
                   <div style={{ marginTop: "16px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                      <label style={{ fontSize: "11px", fontWeight: 700, color: "#334155" }}>
-                        Available Colors
-                      </label>
-                      <button
-                        type="button"
-                        className="btn-tiny"
-                        style={{ background: "#eff6ff", color: "#1e3a8a", borderColor: "#bfdbfe" }}
-                        onClick={() => {
-                          const color = prompt("Enter new color name:", "");
-                          if (color) handleAddColor(color);
-                        }}
-                      >
-                        <Plus size={11} /> Add Color
-                      </button>
-                    </div>
-                    <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
-                      {newProd.availableColors.map((color) => (
-                        <div
-                          key={color}
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: "6px",
-                            background: "#f1f5f9",
-                            border: "1px solid #cbd5e1",
-                            borderRadius: "16px",
-                            padding: "4px 10px",
-                            fontSize: "11px",
-                            fontWeight: 600,
-                          }}
-                        >
-                          <span style={{ width: "10px", height: "10px", borderRadius: "50%", background: "#64748b", border: "1px solid #94a3b8" }}></span>
-                          <span>{color}</span>
-                          {newProd.availableColors.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveColor(color)}
-                              style={{ border: 0, background: "transparent", cursor: "pointer", padding: "0 2px", color: "#64748b" }}
+                    <div style={{ marginBottom: "12px" }}>
+                      <h4 style={{ fontSize: "12px", fontWeight: 700, color: "#0f172a", marginBottom: "4px" }}>
+                        Size Breakdown & Quantities
+                      </h4>
+                      <p style={{ fontSize: "10px", color: "#64748b", marginBottom: "8px" }}>
+                        Enter opening stock quantity. Up to 30 sizes can be added automatically.
+                      </p>
+                      
+                      {/* Color Chips */}
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
+                        <label style={{ fontSize: "11px", fontWeight: 600, color: "#64748b" }}>
+                          Available Colors (3)
+                        </label>
+                        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                          {newProd.availableColors.map((color) => (
+                            <div
+                              key={color}
+                              className="color-chip-tag"
                             >
-                              ×
-                            </button>
-                          )}
+                              <span className="color-dot" style={{ background: color === "Black" ? "#000" : color === "White" ? "#fff" : "#94a3b8" }}></span>
+                              <span>{color}</span>
+                              {newProd.availableColors.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveColor(color)}
+                                  className="color-chip-remove"
+                                  title={`Remove ${color}`}
+                                >
+                                  ×
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                          <button
+                            type="button"
+                            className="color-chip-add"
+                            onClick={() => {
+                              const color = prompt("Enter new color name:", "");
+                              if (color) handleAddColor(color);
+                            }}
+                          >
+                            <Plus size={12} /> Add Color
+                          </button>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Color-Size Stock Matrix */}
-                  <div style={{ marginTop: "16px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "6px", padding: "12px 14px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
-                      <div>
-                        <span style={{ fontSize: "12px", fontWeight: 700, color: "#334155", display: "block" }}>
-                          Size Breakdown & Quantities
-                        </span>
-                        <span style={{ fontSize: "10px", color: "#64748b" }}>
-                          Enter opening stock for each color and size. Totals are calculated automatically.
-                        </span>
                       </div>
-                      <span style={{ fontSize: "13px", fontWeight: 800, color: "#16a34a", background: "#ecfdf5", padding: "4px 10px", borderRadius: "6px" }}>
-                        Total: {getGrandTotal()} pairs
-                      </span>
                     </div>
 
-                    <div style={{ overflowX: "auto", maxWidth: "100%" }}>
-                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "11px", background: "#fff" }}>
+                    {/* Stock Table */}
+                    <div style={{ overflowX: "auto", maxWidth: "100%", border: "1px solid #e2e8f0", borderRadius: "8px" }}>
+                      <table className="stock-matrix-table">
                         <thead>
-                          <tr style={{ background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>
-                            <th style={{ padding: "8px", textAlign: "left", fontWeight: 700, color: "#334155", position: "sticky", left: 0, background: "#f8fafc", zIndex: 2 }}>
-                              Size
-                            </th>
+                          <tr>
+                            <th style={{ textAlign: "left" }}>Size</th>
                             {newProd.availableColors.map((color) => (
-                              <th key={color} style={{ padding: "8px", textAlign: "center", fontWeight: 700, color: "#334155", minWidth: "80px" }}>
+                              <th key={color}>
+                                <span className="color-dot" style={{ background: color === "Black" ? "#000" : color === "White" ? "#fff" : "#94a3b8", marginRight: "4px" }}></span>
                                 {color}
                               </th>
                             ))}
-                            <th style={{ padding: "8px", textAlign: "center", fontWeight: 700, color: "#16a34a", background: "#ecfdf5" }}>
-                              Total
-                            </th>
+                            <th style={{ background: "#f8fafc", color: "#64748b" }}>Total</th>
+                            <th style={{ background: "#f8fafc", color: "#64748b" }}>Actions</th>
                           </tr>
                         </thead>
                         <tbody>
                           {newProd.availableSizes.map((size) => (
-                            <tr key={size} style={{ borderBottom: "1px solid #e2e8f0" }}>
-                              <td style={{ padding: "6px 8px", fontWeight: 700, color: "#0f172a", position: "sticky", left: 0, background: "#fff", zIndex: 1 }}>
-                                {size}
-                              </td>
+                            <tr key={size}>
+                              <td style={{ fontWeight: 700, color: "#0f172a" }}>{size}</td>
                               {newProd.availableColors.map((color) => (
-                                <td key={`${size}-${color}`} style={{ padding: "4px", textAlign: "center" }}>
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    value={getMatrixStock(size, color)}
-                                    onChange={(e) => handleMatrixStockChange(size, color, e.target.value)}
-                                    style={{
-                                      width: "60px",
-                                      height: "28px",
-                                      border: "1px solid #cbd5e1",
-                                      borderRadius: "4px",
-                                      textAlign: "center",
-                                      fontSize: "11px",
-                                      fontWeight: 600,
-                                    }}
-                                  />
+                                <td key={`${size}-${color}`}>
+                                  <div style={{ position: "relative", display: "inline-block" }}>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      value={getMatrixStock(size, color)}
+                                      onChange={(e) => handleMatrixStockChange(size, color, e.target.value)}
+                                      className="stock-input-cell"
+                                      placeholder="0"
+                                    />
+                                    <span className="stock-suffix">prs</span>
+                                  </div>
                                 </td>
                               ))}
-                              <td style={{ padding: "6px 8px", textAlign: "center", fontWeight: 700, color: "#16a34a", background: "#f0fdf4" }}>
+                              <td style={{ fontWeight: 700, color: "#0f172a", background: "#f8fafc" }}>
                                 {getSizeTotal(size)}
+                              </td>
+                              <td style={{ background: "#f8fafc" }}>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveSize(size)}
+                                  className="btn-icon-delete"
+                                  title={`Delete size ${size}`}
+                                >
+                                  <Trash2 size={14} />
+                                </button>
                               </td>
                             </tr>
                           ))}
-                          <tr style={{ background: "#f0fdf4", borderTop: "2px solid #cbd5e1" }}>
-                            <td style={{ padding: "8px", fontWeight: 700, color: "#16a34a", position: "sticky", left: 0, background: "#f0fdf4", zIndex: 1 }}>
-                              Total
-                            </td>
+                        </tbody>
+                        <tfoot>
+                          <tr className="total-row">
+                            <td style={{ fontWeight: 700 }}>Total (Pairs)</td>
                             {newProd.availableColors.map((color) => (
-                              <td key={`total-${color}`} style={{ padding: "8px", textAlign: "center", fontWeight: 700, color: "#16a34a" }}>
+                              <td key={`total-${color}`}>
                                 {getColorTotal(color)}
                               </td>
                             ))}
-                            <td style={{ padding: "8px", textAlign: "center", fontWeight: 800, color: "#15803d", fontSize: "13px" }}>
+                            <td style={{ fontWeight: 800, fontSize: "13px", background: "#d1fae5" }}>
                               {getGrandTotal()}
                             </td>
+                            <td style={{ background: "#d1fae5" }}></td>
                           </tr>
-                        </tbody>
+                        </tfoot>
                       </table>
                     </div>
 
-                    <div style={{ marginTop: "10px", display: "flex", gap: "8px" }}>
+                    <div style={{ marginTop: "12px", display: "flex", gap: "8px", justifyContent: "space-between", alignItems: "center" }}>
                       <button
                         type="button"
                         className="btn-tiny"
+                        style={{ background: "#eff6ff", color: "#1e40af", borderColor: "#bfdbfe" }}
                         onClick={() => {
                           const size = prompt("Enter new size:", "");
                           if (size) handleAddSize(size);
@@ -1912,6 +1900,10 @@ export default function InventoryView() {
                       >
                         <Plus size={11} /> Add Size
                       </button>
+                      <span style={{ fontSize: "10px", color: "#3b82f6", display: "flex", alignItems: "center", gap: "4px" }}>
+                        <AlertTriangle size={11} />
+                        Each cell represents quantity per dark specific color and size
+                      </span>
                     </div>
                   </div>
                 </div>
