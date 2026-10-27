@@ -15,15 +15,10 @@ import {
   Layers,
   Barcode,
   ScanLine,
-  Filter,
-  SlidersHorizontal,
   RotateCcw,
   AlertCircle,
   CheckCircle2,
-  Volume2,
   X,
-  Phone,
-  ArrowRight,
 } from "lucide-react";
 import { useStore } from "../context/StoreContext.jsx";
 import { formatINR } from "../utils/calculations.js";
@@ -34,6 +29,7 @@ const categories = [
   { id: "Ladies", label: "Ladies (Women)" },
   { id: "Boys", label: "Boys / Kids" },
   { id: "Girls", label: "Girls / Kids" },
+  { id: "Infant", label: "Infant" },
   { id: "Formal", label: "Formal" },
   { id: "Casual", label: "Casual" },
   { id: "Sports", label: "Sports" },
@@ -54,37 +50,35 @@ export default function BillingView() {
     settings,
   } = useStore();
 
-  // Filters State (Issue 1 & 4)
+  // Filters State
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedBrand, setSelectedBrand] = useState("All");
   const [selectedSize, setSelectedSize] = useState("All");
   const [selectedColor, setSelectedColor] = useState("All");
   const [query, setQuery] = useState("");
 
-  // Size Selection State for Catalogue Cards (Issue 6)
-  const [selectedSizes, setSelectedSizes] = useState({});
+  // Product & Size Selection State for Docked Drawer (Matching Design Photo)
+  const [selectedProductId, setSelectedProductId] = useState(null);
+  const [selectedVariantId, setSelectedVariantId] = useState(null);
 
-  // Customer Details State (Issue 2)
+  // Customer Details State
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
-  const [isCustomerRequired, setIsCustomerRequired] = useState(
-    settings.require_customer_phone || false
-  );
   const [customerError, setCustomerError] = useState("");
 
   // Payment & Bill Discount State
   const [billDiscount, setBillDiscount] = useState(0);
-  const [paymentMethod, setPaymentMethod] = useState("UPI");
+  const [paymentMethod, setPaymentMethod] = useState("Split");
   const [splitCash, setSplitCash] = useState(0);
   const [splitUpi, setSplitUpi] = useState(0);
 
-  // Barcode Scanner State (Issue 8)
+  // Barcode Scanner State
   const [barcodeInput, setBarcodeInput] = useState("");
   const [scanToast, setScanToast] = useState(null);
   const [isBarcodeModalOpen, setIsBarcodeModalOpen] = useState(false);
   const barcodeInputRef = useRef(null);
 
-  // Synthesize audible beep on successful barcode scan
+  // Synthesize audible beep on successful scan
   const playBeep = () => {
     try {
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -100,7 +94,51 @@ export default function BillingView() {
     } catch {}
   };
 
-  // Derive unique filter options from active products
+  // Derive active selected product & variant
+  const selectedProduct = useMemo(() => {
+    if (!selectedProductId) return null;
+    return products.find((p) => p.id === selectedProductId) || null;
+  }, [products, selectedProductId]);
+
+  const selectedVariant = useMemo(() => {
+    if (!selectedProduct) return null;
+    return selectedProduct.variants?.find((v) => v.id === selectedVariantId) || null;
+  }, [selectedProduct, selectedVariantId]);
+
+  // Handle card click: selects product and defaults to first in-stock variant
+  const handleProductCardClick = (prod) => {
+    if (selectedProductId === prod.id) {
+      // Clicking same card again closes size panel
+      setSelectedProductId(null);
+      setSelectedVariantId(null);
+      return;
+    }
+
+    setSelectedProductId(prod.id);
+    const inStockVar = prod.variants?.find((v) => (v.stock || 0) > 0) || prod.variants?.[0] || null;
+    setSelectedVariantId(inStockVar ? inStockVar.id : null);
+  };
+
+  // Add selected variant from docked panel to bill
+  const handleAddSelectedToBill = () => {
+    if (!selectedProduct || !selectedVariant) return;
+    if ((selectedVariant.stock || 0) <= 0) {
+      alert(`Size ${selectedVariant.size} is currently out of stock.`);
+      return;
+    }
+
+    playBeep();
+    addToCart(selectedVariant, selectedProduct);
+    setScanToast({
+      name: selectedProduct.name,
+      size: selectedVariant.size,
+      price: selectedVariant.selling_price,
+      barcode: selectedVariant.barcode || selectedProduct.barcode,
+    });
+    setTimeout(() => setScanToast(null), 3000);
+  };
+
+  // Derive unique filter options
   const availableBrands = useMemo(() => {
     const set = new Set();
     products.forEach((p) => {
@@ -118,46 +156,57 @@ export default function BillingView() {
     });
     return [
       "All",
-      ...Array.from(set).sort((a, b) => (parseFloat(a) || 0) - (parseFloat(b) || 0)),
+      ...Array.from(set).sort((a, b) => {
+        const isSA = String(a).startsWith("S");
+        const isSB = String(b).startsWith("S");
+        if (!isSA && !isSB) return Number(a) - Number(b);
+        if (isSA && !isSB) return 1;
+        if (!isSA && isSB) return -1;
+        return Number(String(a).replace("S", "")) - Number(String(b).replace("S", ""));
+      }),
     ];
   }, [products]);
 
   const availableColors = useMemo(() => {
     const set = new Set();
     products.forEach((p) => {
+      if (p.colours) {
+        p.colours.split(",").forEach((c) => set.add(c.trim()));
+      }
       p.variants?.forEach((v) => {
-        if (v.color) set.add(v.color);
+        if (v.color) {
+          v.color.split(",").forEach((c) => set.add(c.trim()));
+        }
       });
     });
     return ["All", ...Array.from(set).sort()];
   }, [products]);
 
-  // Filter products strictly based on category, brand, size, color, and instant search (Issue 1 & 4)
+  // Filter products strictly based on category, brand, size, color, and live query
   const filteredProducts = useMemo(() => {
     return products.filter((prod) => {
-      // Category filter (flexible matching for Gents/Men, Ladies/Women, Boys/Kids, etc.)
       if (selectedCategory !== "All") {
         const c = String(prod.category || "").toLowerCase();
         const sub = String(prod.sub_category || "").toLowerCase();
         const sc = selectedCategory.toLowerCase();
+
         const matchCat =
           (sc === "gents" && (c.includes("men") || c === "gents")) ||
           (sc === "ladies" && (c.includes("women") || c === "ladies")) ||
           (sc === "boys" && (c.includes("boy") || c.includes("kid"))) ||
           (sc === "girls" && (c.includes("girl") || c.includes("kid"))) ||
+          (sc === "infant" && (c.includes("infant") || c.includes("baby"))) ||
           c === sc ||
           sub === sc;
         if (!matchCat) return false;
       }
 
-      // Brand filter
       if (selectedBrand !== "All") {
         if (prod.brand?.toLowerCase() !== selectedBrand.toLowerCase()) {
           return false;
         }
       }
 
-      // Size filter
       if (selectedSize !== "All") {
         const hasSize = prod.variants?.some(
           (v) => String(v.size) === String(selectedSize) && (v.stock || 0) > 0
@@ -165,17 +214,16 @@ export default function BillingView() {
         if (!hasSize) return false;
       }
 
-      // Color filter
       if (selectedColor !== "All") {
-        const hasColor = prod.variants?.some(
-          (v) =>
-            v.color?.toLowerCase() === selectedColor.toLowerCase() &&
-            (v.stock || 0) > 0
-        );
+        const targetC = selectedColor.toLowerCase();
+        const hasColor =
+          prod.colours?.toLowerCase().includes(targetC) ||
+          prod.variants?.some(
+            (v) => v.color?.toLowerCase().includes(targetC) && (v.stock || 0) > 0
+          );
         if (!hasColor) return false;
       }
 
-      // Instant live query (Issue 4: searches on typing without pressing Enter)
       if (!query.trim()) return true;
       const q = query.toLowerCase().trim();
 
@@ -183,7 +231,7 @@ export default function BillingView() {
       const matchArt = prod.article_no?.toLowerCase().includes(q);
       const matchBrand = prod.brand?.toLowerCase().includes(q);
       const matchCat = prod.category?.toLowerCase().includes(q);
-      const matchSub = prod.sub_category?.toLowerCase().includes(q);
+      const matchBarcode = prod.barcode?.toLowerCase().includes(q);
 
       const matchVariant = prod.variants?.some(
         (v) =>
@@ -193,11 +241,11 @@ export default function BillingView() {
           v.color?.toLowerCase().includes(q)
       );
 
-      return matchName || matchArt || matchBrand || matchCat || matchSub || matchVariant;
+      return matchName || matchArt || matchBrand || matchCat || matchBarcode || matchVariant;
     });
   }, [products, selectedCategory, selectedBrand, selectedSize, selectedColor, query]);
 
-  // Barcode scanning processing (Issue 8)
+  // Barcode scanning processing
   const handleBarcodeProcess = (scannedCode) => {
     const raw = scannedCode.trim();
     if (!raw) return;
@@ -205,6 +253,7 @@ export default function BillingView() {
     let matchedProduct = null;
     let matchedVariant = null;
 
+    // 1. Direct variant barcode / SKU check
     for (const prod of products) {
       const v = prod.variants?.find(
         (variant) =>
@@ -215,6 +264,27 @@ export default function BillingView() {
         matchedProduct = prod;
         matchedVariant = v;
         break;
+      }
+    }
+
+    // 2. Product-level barcode check (e.g. FW890101)
+    if (!matchedProduct) {
+      matchedProduct = products.find(
+        (p) =>
+          p.barcode?.toLowerCase() === raw.toLowerCase() ||
+          p.article_no?.toLowerCase() === raw.toLowerCase()
+      );
+      if (matchedProduct) {
+        // Auto-select product card and open size picker
+        setSelectedProductId(matchedProduct.id);
+        const firstAvailable =
+          matchedProduct.variants?.find((v) => (v.stock || 0) > 0) ||
+          matchedProduct.variants?.[0] ||
+          null;
+        setSelectedVariantId(firstAvailable ? firstAvailable.id : null);
+        playBeep();
+        setBarcodeInput("");
+        return;
       }
     }
 
@@ -252,7 +322,7 @@ export default function BillingView() {
     }
   };
 
-  // Keyboard shortcut listener for USB Barcode Scanners
+  // Keyboard shortcut listener for physical USB Barcode Scanners
   useEffect(() => {
     let keyBuffer = "";
     let lastKeyTime = Date.now();
@@ -288,26 +358,7 @@ export default function BillingView() {
     return () => window.removeEventListener("keydown", handleWindowKeyDown);
   }, [products]);
 
-  // Size selection and toggle logic for cards (Issue 6)
-  const handleSizeClick = (variant, prod) => {
-    const currentSelected = selectedSizes[prod.id];
-    if (currentSelected === variant.id) {
-      // Clicking the same size again deselects it
-      setSelectedSizes((prev) => {
-        const next = { ...prev };
-        delete next[prod.id];
-        return next;
-      });
-    } else {
-      // Select new size
-      setSelectedSizes((prev) => ({
-        ...prev,
-        [prod.id]: variant.id,
-      }));
-    }
-  };
-
-  // Product-wise GST and Cart Calculations (Issue 3)
+  // Product-wise GST and Cart Calculations
   const subtotal = cart.reduce(
     (sum, item) => sum + (Number(item.unit_price ?? item.unitPrice) || 0) * item.quantity,
     0
@@ -335,6 +386,15 @@ export default function BillingView() {
   const grandTotal = Math.round((taxableAmount + taxAmount) * 100) / 100;
   const totalItemsCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
+  // Auto-sync split payment amounts when grand total changes
+  useEffect(() => {
+    if (paymentMethod === "Split") {
+      const half = Math.round((grandTotal / 2) * 100) / 100;
+      setSplitCash(half);
+      setSplitUpi(Math.round((grandTotal - half) * 100) / 100);
+    }
+  }, [grandTotal, paymentMethod]);
+
   // Split payment helpers
   const handleSelectPaymentMethod = (method) => {
     setPaymentMethod(method);
@@ -357,7 +417,7 @@ export default function BillingView() {
     setSplitCash(Math.max(0, Math.round((grandTotal - upiVal) * 100) / 100));
   };
 
-  // Checkout with validation: Customer details are strictly mandatory by default (Issue 3)
+  // Checkout with validation
   const handleCheckout = () => {
     if (cart.length === 0) return;
 
@@ -401,7 +461,6 @@ export default function BillingView() {
     setBillDiscount(0);
     setSplitCash(0);
     setSplitUpi(0);
-    setSelectedSizes({});
   };
 
   const resetAllFilters = () => {
@@ -426,7 +485,7 @@ export default function BillingView() {
         <div className="barcode-scan-banner" role="alert">
           <CheckCircle2 size={18} style={{ color: "#22c55e" }} />
           <div>
-            <strong>✓ Scanned to Bill: {scanToast.name}</strong>
+            <strong>✓ Added to Bill: {scanToast.name}</strong>
             <span>
               Size: {scanToast.size} | {formatINR(scanToast.price)} | Barcode: {scanToast.barcode}
             </span>
@@ -447,7 +506,7 @@ export default function BillingView() {
         <div className="panel-heading">
           <div>
             <h2>Product catalogue</h2>
-            <p>Select footwear model, tap a size to view its price, and click Add</p>
+            <p>Select footwear model to view details and add to bill</p>
           </div>
           <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
             <button
@@ -456,7 +515,7 @@ export default function BillingView() {
               onClick={() => setIsBarcodeModalOpen(true)}
               title="Open Barcode Quick Lookup Directory"
             >
-              <Barcode size={14} /> Barcode Directory
+              <Barcode size={14} /> Barcode / QR
             </button>
             <span className="small-tag">
               {filteredProducts.length} ARTICLES AVAILABLE
@@ -472,7 +531,7 @@ export default function BillingView() {
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Live search by name, article code, brand, color, size..."
+              placeholder="Search by name, article code, brand, color, size..."
               className="search-input-field"
             />
             {query && (
@@ -485,7 +544,6 @@ export default function BillingView() {
                 ✕
               </button>
             )}
-            <span className="search-count-pill">{filteredProducts.length} found</span>
           </div>
 
           <div className="barcode-box-unified" title="Auto-detects USB / Bluetooth Barcode Scanners">
@@ -505,7 +563,7 @@ export default function BillingView() {
           </div>
         </div>
 
-        {/* Category Filter Pills (Issue 1) */}
+        {/* Category Filter Pills */}
         <div className="category-scroll">
           {categories.map((cat) => (
             <button
@@ -518,7 +576,7 @@ export default function BillingView() {
           ))}
         </div>
 
-        {/* Secondary Filter Toolbar: Brand, Size, Color (Issue 1) */}
+        {/* Secondary Filter Toolbar: Brand, Size, Color */}
         <div className="catalogue-filter-toolbar">
           <div className="filter-dropdown-chip">
             <span className="chip-label">Brand:</span>
@@ -577,7 +635,7 @@ export default function BillingView() {
           )}
         </div>
 
-        {/* Product Cards Grid */}
+        {/* Product Cards Grid (Matching Photo: Image left, Art/Brand/Name/Price right) */}
         <div className="catalog-grid-container">
           {filteredProducts.length === 0 ? (
             <div className="empty-state">
@@ -604,136 +662,65 @@ export default function BillingView() {
           ) : (
             <div className="footwear-card-grid">
               {filteredProducts.map((prod) => {
-                const selectedVariantId = selectedSizes[prod.id];
-                const activeVariant =
-                  prod.variants?.find((v) => v.id === selectedVariantId) || null;
-
-                const prices =
-                  prod.variants
-                    ?.map((v) => Number(v.selling_price) || 0)
-                    .filter((p) => p > 0) || [];
-                const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
-                const maxPrice = prices.length > 0 ? Math.max(...prices) : 0;
-                const activeTaxRate = activeVariant
-                  ? Number(activeVariant.tax_rate) ||
-                    (activeVariant.selling_price >= 1000 ? 12 : 5)
-                  : null;
+                const isSelected = selectedProductId === prod.id;
+                const sellingPrice =
+                  prod.variants?.[0]?.selling_price || prod.selling_price || 0;
+                const taxRate =
+                  prod.tax_rate ?? (sellingPrice >= 1000 ? 12 : 5);
 
                 return (
                   <div
                     key={prod.id}
-                    className={`footwear-card ${activeVariant ? "has-selected-size" : ""}`}
+                    className={`footwear-card-photo ${isSelected ? "selected-card" : ""}`}
+                    onClick={() => handleProductCardClick(prod)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        handleProductCardClick(prod);
+                      }
+                    }}
                   >
-                    <div className="footwear-card-header">
-                      <span className="art-pill">{prod.article_no}</span>
-                      <span className="brand-label">{prod.brand}</span>
-                    </div>
-
-                    <h4 className="footwear-name" title={prod.name}>
-                      {prod.name}
-                    </h4>
-
-                    <div className="footwear-category-label">
-                      {prod.category} • {prod.sub_category}
-                    </div>
-
-                    {/* Dynamic Price & GST Display (No default price when unselected) */}
-                    {activeVariant ? (
-                      <div className="footwear-card-price has-selection">
-                        <div className="selected-price-info">
-                          <strong className="selected-price-val">
-                            {formatINR(activeVariant.selling_price)}
-                          </strong>
-                          <span className="selected-size-chip">
-                            ✓ Size {activeVariant.size}
-                          </span>
-                        </div>
-                        <span className="tax-hint highlight-tax">
-                          GST: {activeTaxRate}%
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="footwear-card-price unselected">
-                        <span className="price-range-tag">
-                          {minPrice === maxPrice
-                            ? formatINR(minPrice)
-                            : `${formatINR(minPrice)} – ${formatINR(maxPrice)}`}
-                        </span>
-                        <span className="tax-hint">
-                          GST: {minPrice < 1000 && maxPrice >= 1000 ? "5% / 12%" : (minPrice >= 1000 ? "12%" : "5%")}
-                        </span>
+                    {/* Selected Checkmark Badge (Top Right) */}
+                    {isSelected && (
+                      <div className="card-selected-check-badge">
+                        <Check size={12} strokeWidth={3} />
                       </div>
                     )}
 
-                    {/* Size Chips Section (Clicking same size deselects it) */}
-                    <div className="sizes-section">
-                      <div className="sizes-caption-row">
-                        <span className="sizes-caption">
-                          {activeVariant
-                            ? `Selected Size ${activeVariant.size} (${activeVariant.stock} in stock)`
-                            : "Tap size to select:"}
+                    {/* Shoe Thumbnail (Left) */}
+                    <div className="footwear-thumb-wrap">
+                      <img
+                        src={prod.image || `/assets/products/${prod.article_no?.toLowerCase()}.jpg`}
+                        alt={prod.name}
+                        className="footwear-thumb-img"
+                        onError={(e) => {
+                          e.target.style.display = "none";
+                          e.target.nextElementSibling.style.display = "flex";
+                        }}
+                      />
+                      <div className="footwear-thumb-fallback" style={{ display: "none" }}>
+                        <Package size={22} style={{ color: "#94a3b8" }} />
+                      </div>
+                    </div>
+
+                    {/* Shoe Meta & Price (Right) */}
+                    <div className="footwear-card-details">
+                      <div className="card-top-row">
+                        <span className="card-art-code">
+                          <Barcode size={12} className="card-barcode-icon" /> {prod.article_no}
                         </span>
-                        {activeVariant && (
-                          <span className="deselect-hint">Click again to deselect</span>
-                        )}
                       </div>
 
-                      <div className="size-chips-row">
-                        {prod.variants?.map((v) => {
-                          const inStock = (v.stock || 0) > 0;
-                          const isCurrentSelected = selectedVariantId === v.id;
-                          const inCartItem = cart.find((c) => c.variant_id === v.id);
-                          const variantGst =
-                            Number(v.tax_rate) || (v.selling_price >= 1000 ? 12 : 5);
-
-                          return (
-                            <button
-                              key={v.id}
-                              type="button"
-                              disabled={!inStock}
-                              className={`size-btn ${isCurrentSelected ? "selected-active" : ""} ${
-                                inCartItem ? "in-cart" : ""
-                              } ${!inStock ? "out-of-stock" : ""}`}
-                              onClick={() => handleSizeClick(v, prod)}
-                              title={`Size ${v.size} (${v.color}) • Stock: ${v.stock} pairs • ₹${v.selling_price} (GST: ${variantGst}%)`}
-                            >
-                              <span className="size-num">{v.size}</span>
-                              <span className="size-stock">
-                                {inStock ? `${v.stock}` : "0"}
-                              </span>
-                            </button>
-                          );
-                        })}
+                      <div className="card-brand-name">{prod.brand}</div>
+                      <div className="card-product-name" title={prod.name}>
+                        {prod.name}
                       </div>
 
-                      {/* Card Action Button: Add Selected Size to Bill */}
-                      <div className="card-add-action-wrap">
-                        {activeVariant ? (
-                          <button
-                            type="button"
-                            className="btn-add-active-variant"
-                            onClick={() => addToCart(activeVariant, prod)}
-                          >
-                            <Plus size={13} /> Add Size {activeVariant.size} ·{" "}
-                            {formatINR(activeVariant.selling_price)}
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            className="btn-add-active-variant outline"
-                            onClick={() => {
-                              const firstAvailable = prod.variants?.find((v) => (v.stock || 0) > 0);
-                              if (firstAvailable) {
-                                setSelectedSizes((prev) => ({
-                                  ...prev,
-                                  [prod.id]: firstAvailable.id,
-                                }));
-                              }
-                            }}
-                          >
-                            Tap Any Size to Select
-                          </button>
-                        )}
+                      <div className="card-price-row">
+                        <span className="card-price-val">{formatINR(sellingPrice)}</span>
+                        <span className="card-gst-pill">GST: {taxRate}%</span>
                       </div>
                     </div>
                   </div>
@@ -742,6 +729,91 @@ export default function BillingView() {
             </div>
           )}
         </div>
+
+        {/* DOCKED SIZE SELECTION DRAWER (Bottom of Catalogue - Exact Match with Photo) */}
+        {selectedProduct && (
+          <div className="docked-size-panel">
+            <div className="docked-size-header">
+              <div className="docked-product-meta">
+                <img
+                  src={selectedProduct.image || `/assets/products/${selectedProduct.article_no?.toLowerCase()}.jpg`}
+                  alt={selectedProduct.name}
+                  className="docked-product-thumb"
+                  onError={(e) => {
+                    e.target.style.display = "none";
+                  }}
+                />
+                <div>
+                  <h4 className="docked-title">
+                    Select size — {selectedProduct.article_no}
+                  </h4>
+                  <p className="docked-subtitle">{selectedProduct.name}</p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                className="btn-docked-close"
+                onClick={() => {
+                  setSelectedProductId(null);
+                  setSelectedVariantId(null);
+                }}
+                title="Close size selection"
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            <div className="docked-size-body">
+              <div className="docked-sizes-col">
+                <span className="docked-available-label">
+                  Available sizes ({selectedProduct.category})
+                </span>
+
+                <div className="docked-size-buttons-scroll">
+                  {selectedProduct.variants?.map((v) => {
+                    const inStock = (v.stock || 0) > 0;
+                    const isSizeActive = selectedVariantId === v.id;
+
+                    return (
+                      <button
+                        key={v.id}
+                        type="button"
+                        disabled={!inStock}
+                        className={`docked-size-btn ${isSizeActive ? "active" : ""} ${
+                          !inStock ? "out-of-stock" : ""
+                        }`}
+                        onClick={() => setSelectedVariantId(v.id)}
+                        title={`Size ${v.size} • Stock: ${v.stock} pairs`}
+                      >
+                        <span className="size-label-main">{v.size}</span>
+                        <span className="size-stock-sub">
+                          {inStock ? `${v.stock} in stock` : "0 in stock"}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="docked-actions-col">
+                <span className="docked-selected-indicator">
+                  {selectedVariant ? `Selected: Size ${selectedVariant.size}` : "Select a size"}
+                </span>
+
+                <button
+                  type="button"
+                  className="btn-docked-add-bill"
+                  disabled={!selectedVariant || (selectedVariant.stock || 0) <= 0}
+                  onClick={handleAddSelectedToBill}
+                >
+                  <ShoppingCart size={15} /> Add to bill |{" "}
+                  {formatINR(selectedVariant ? selectedVariant.selling_price : (selectedProduct.variants?.[0]?.selling_price || 0))}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* RIGHT PANEL: CURRENT BILL */}
@@ -767,13 +839,13 @@ export default function BillingView() {
           </div>
         </div>
 
-        {/* Customer Details Card: Mandatory by Default (Issue 3) */}
+        {/* Customer Details Card (Mandatory * & Walk-in Auto-fill) */}
         <div className="pos-customer-card">
           <div className="pos-customer-header">
             <div className="customer-header-title">
-              <User size={13} style={{ color: "#c5a15c" }} />
+              <User size={14} style={{ color: "#d97706" }} />
               <strong>Customer Details</strong>
-              <span className="customer-mandatory-badge">Mandatory *</span>
+              <span className="customer-mandatory-badge">MANDATORY *</span>
             </div>
             <div className="customer-header-actions">
               <button
@@ -784,7 +856,7 @@ export default function BillingView() {
                   setCustomerPhone("9999999999");
                   setCustomerError("");
                 }}
-                title="Auto-fill Walk-in Customer (Name: Walk-in, Mobile: 9999999999)"
+                title="Auto-fill Walk-in Customer"
               >
                 ⚡ Walk-in Auto-fill
               </button>
@@ -827,12 +899,12 @@ export default function BillingView() {
           )}
         </div>
 
-        {/* Cart Items List with Item-Wise GST & Custom GST Option (Issue 3) */}
+        {/* Cart Items List */}
         <div className="cart-items-wrapper">
           {cart.length === 0 ? (
             <div className="cart-empty">
               <div className="cart-empty-circle">
-                <ShoppingCart size={28} />
+                <ShoppingCart size={30} style={{ color: "#94a3b8" }} />
               </div>
               <strong>Your bill is empty</strong>
               <span>Select footwear sizes or scan barcodes to begin billing.</span>
@@ -855,7 +927,7 @@ export default function BillingView() {
                         <span>•</span>
                         <span>{item.color}</span>
                         <span>•</span>
-                        <span className="cart-hsn-tag">HSN {item.hsn_code || "6403"}</span>
+                        <span className="cart-hsn-tag">HSN 6403</span>
                       </div>
                       <div className="cart-item-rate">
                         {formatINR(unitPrice)} each
@@ -881,7 +953,7 @@ export default function BillingView() {
                         </button>
                       </div>
 
-                      {/* Custom Item-Wise GST Dropdown (Issue 3) */}
+                      {/* Custom Item-Wise GST Dropdown */}
                       <div className="cart-item-gst-control" title="Custom GST for this item">
                         <label>GST:</label>
                         <select
@@ -943,7 +1015,6 @@ export default function BillingView() {
             />
           </div>
 
-          {/* Product-wise Tax Calculation Display (Issue 3) */}
           <div className="tax-row">
             <span>Taxable Amount</span>
             <strong>{formatINR(taxableAmount)}</strong>
@@ -959,13 +1030,13 @@ export default function BillingView() {
             <strong className="grand-total-val">{formatINR(grandTotal)}</strong>
           </div>
 
-          {/* Payment Method Selector */}
+          {/* Payment Method Selector (Split is First) */}
           <div className="payment-options">
             {[
+              { id: "Split", label: "Cash+UPI", icon: Layers },
               { id: "UPI", label: "UPI / QR", icon: QrCode },
               { id: "Cash", label: "Cash", icon: Banknote },
               { id: "Card", label: "Card", icon: CreditCard },
-              { id: "Split", label: "Split (Cash + UPI)", icon: Layers },
             ].map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
@@ -1037,8 +1108,6 @@ export default function BillingView() {
                   </div>
                 </div>
               </div>
-
-
             </div>
           )}
 
@@ -1047,15 +1116,12 @@ export default function BillingView() {
             disabled={cart.length === 0}
             onClick={handleCheckout}
           >
-            Checkout · {formatINR(grandTotal)}
+            Checkout - {formatINR(grandTotal)}
           </button>
-          <p className="checkout-note">
-            Instant invoice generation with real-time stock deduction
-          </p>
         </div>
       </div>
 
-      {/* BARCODE LOOKUP DIRECTORY MODAL (Issue 8) */}
+      {/* BARCODE LOOKUP DIRECTORY MODAL */}
       {isBarcodeModalOpen && (
         <div className="modal-backdrop" onClick={() => setIsBarcodeModalOpen(false)}>
           <div

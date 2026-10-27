@@ -20,6 +20,10 @@ import {
   Barcode,
   Layers,
   Sparkles,
+  Camera,
+  Settings,
+  Calendar,
+  ChevronDown,
 } from "lucide-react";
 import { useStore } from "../context/StoreContext.jsx";
 import { formatINR } from "../utils/calculations.js";
@@ -141,16 +145,83 @@ export default function InventoryView() {
     setSizeTargetProduct(null);
   };
 
-  // Open Combined Edit Product & Stock Adjustment Modal (Issue 4)
+  // Dynamic Dropdown Lists for Category, Footwear Type, and GST Rate
+  const [categoriesList, setCategoriesList] = useState([
+    "Gents",
+    "Ladies",
+    "Boys",
+    "Girls",
+    "Infant",
+  ]);
+  const [footwearTypesList, setFootwearTypesList] = useState([
+    "Casual",
+    "Formal",
+    "Sports",
+    "Sandals",
+    "Boots",
+    "Ethnic",
+    "Slippers",
+  ]);
+  const [gstRatesList, setGstRatesList] = useState([0, 5, 12, 18, 28]);
+
+  // Dynamic inline add popover state: { type: 'category' | 'type' | 'gst', target: 'new' | 'edit', value: '' }
+  const [dynamicAddModal, setDynamicAddModal] = useState(null);
+
+  // Photo-Accurate Add Item Modal States (Vyapar / ERP Layout)
+  const [addItemType, setAddItemType] = useState("product"); // 'product' | 'service'
+  const [addItemTab, setAddItemTab] = useState("stock"); // 'stock' | 'pricing' | 'online' (stock active as in photo)
+
+  const defaultNewProdTemplate = {
+    article_no: "",
+    name: "",
+    hsn: "64041190",
+    unit: "Pairs",
+    image_url: "",
+    brand: "Sparx",
+    category: "Gents",
+    sub_category: "Casual",
+    color: "Black, White",
+    cost_price: 520,
+    selling_price: 850,
+    tax_rate: 5,
+    opening_qty: 37,
+    batch_no: "BAT-2026-A",
+    as_of_date: new Date().toISOString().slice(0, 10),
+    min_stock: 3,
+    location: "Rack A-12",
+    barcode: "",
+    description: "",
+    variants: [
+      { size: "6", color: "Black", cost_price: 520, selling_price: 850, stock: 7 },
+      { size: "7", color: "Black", cost_price: 520, selling_price: 850, stock: 10 },
+      { size: "8", color: "Black", cost_price: 520, selling_price: 850, stock: 10 },
+      { size: "9", color: "Black", cost_price: 520, selling_price: 850, stock: 6 },
+      { size: "10", color: "Black", cost_price: 520, selling_price: 850, stock: 4 },
+    ],
+  };
+
+  const [newProd, setNewProd] = useState(defaultNewProdTemplate);
+
+  // Open Combined Edit Product & Stock Adjustment Modal
   const handleOpenEditProduct = (prod) => {
+    const rawColor =
+      prod.color ||
+      (Array.isArray(prod.colours) ? prod.colours.join(", ") : "") ||
+      prod.variants?.[0]?.color ||
+      "Black";
+
     setEditingProd({
       id: prod.id,
       name: prod.name || "",
       article_no: prod.article_no || "",
-      brand: prod.brand || "JD Signature",
+      brand: prod.brand || "Sparx",
       category: prod.category || "Gents",
       sub_category: prod.sub_category || "Casual",
-      tax_rate: prod.tax_rate ?? 12,
+      color: rawColor,
+      tax_rate: prod.tax_rate ?? 5,
+      hsn: prod.hsn || prod.hsn_code || "64041190",
+      unit: prod.unit || "Pairs",
+      location: prod.location || "Rack A-1",
       variants: prod.variants.map((v) => ({
         id: v.id,
         size: v.size,
@@ -176,8 +247,15 @@ export default function InventoryView() {
       alert("Please provide both Article Code and Product Name.");
       return;
     }
+
+    const colorArray = editingProd.color
+      ? editingProd.color.split(",").map((c) => c.trim()).filter(Boolean)
+      : ["Black"];
+
     updateProduct(editingProd.id, {
       ...editingProd,
+      color: editingProd.color,
+      colours: colorArray,
       reason: editingAdjustReason,
       note: editingAdjustNote,
     });
@@ -227,22 +305,138 @@ export default function InventoryView() {
     setEditingProd({ ...editingProd, variants: updated });
   };
 
-  // New product form state
-  const [newProd, setNewProd] = useState({
-    article_no: "",
-    name: "",
-    brand: "JD Signature",
-    category: "Gents",
-    sub_category: "Casual",
-    tax_rate: 12,
-    variants: [
-      { size: "6", color: "Black", cost_price: 600, selling_price: 1199, stock: 6 },
-      { size: "7", color: "Black", cost_price: 600, selling_price: 1199, stock: 8 },
-      { size: "8", color: "Black", cost_price: 600, selling_price: 1199, stock: 10 },
-      { size: "9", color: "Black", cost_price: 600, selling_price: 1199, stock: 8 },
-      { size: "10", color: "Black", cost_price: 600, selling_price: 1199, stock: 4 },
-    ],
-  });
+  // Helper for dynamic additions (Category, Footwear Type, GST Rate)
+  const handleSaveDynamicOption = (e) => {
+    e.preventDefault();
+    if (!dynamicAddModal || !dynamicAddModal.value.trim()) return;
+    const { type, target, value } = dynamicAddModal;
+    const cleanVal = value.trim();
+
+    if (type === "category") {
+      if (!categoriesList.includes(cleanVal)) {
+        setCategoriesList((prev) => [...prev, cleanVal]);
+      }
+      if (target === "new") {
+        setNewProd((prev) => ({ ...prev, category: cleanVal }));
+      } else if (target === "edit" && editingProd) {
+        setEditingProd((prev) => ({ ...prev, category: cleanVal }));
+      }
+    } else if (type === "type") {
+      if (!footwearTypesList.includes(cleanVal)) {
+        setFootwearTypesList((prev) => [...prev, cleanVal]);
+      }
+      if (target === "new") {
+        setNewProd((prev) => ({ ...prev, sub_category: cleanVal }));
+      } else if (target === "edit" && editingProd) {
+        setEditingProd((prev) => ({ ...prev, sub_category: cleanVal }));
+      }
+    } else if (type === "gst") {
+      const numRate = Number(cleanVal);
+      if (!isNaN(numRate) && !gstRatesList.includes(numRate)) {
+        setGstRatesList((prev) => [...prev, numRate].sort((a, b) => a - b));
+      }
+      if (target === "new") {
+        setNewProd((prev) => ({ ...prev, tax_rate: numRate }));
+      } else if (target === "edit" && editingProd) {
+        setEditingProd((prev) => ({ ...prev, tax_rate: numRate }));
+      }
+    }
+
+    setDynamicAddModal(null);
+  };
+
+  // Add Item: Opening quantity distribution
+  const handleOpeningQtyChange = (qty) => {
+    const total = Math.max(0, Number(qty) || 0);
+    const numVars = newProd.variants.length || 5;
+    const base = Math.floor(total / numVars);
+    const remainder = total % numVars;
+
+    const updated = newProd.variants.map((v, i) => ({
+      ...v,
+      stock: base + (i < remainder ? 1 : 0),
+    }));
+
+    setNewProd({
+      ...newProd,
+      opening_qty: total,
+      variants: updated,
+    });
+  };
+
+  const handleNewVariantStockChange = (idx, stockVal) => {
+    const val = Math.max(0, Number(stockVal) || 0);
+    const updated = [...newProd.variants];
+    updated[idx] = { ...updated[idx], stock: val };
+    const sumTotal = updated.reduce((s, v) => s + (v.stock || 0), 0);
+    setNewProd({
+      ...newProd,
+      opening_qty: sumTotal,
+      variants: updated,
+    });
+  };
+
+  const handleAddSizeToNewProd = () => {
+    const nextSize = String(newProd.variants.length + 6);
+    const updated = [
+      ...newProd.variants,
+      {
+        size: nextSize,
+        color: newProd.color ? newProd.color.split(",")[0].trim() : "Black",
+        cost_price: newProd.cost_price,
+        selling_price: newProd.selling_price,
+        stock: 5,
+      },
+    ];
+    const sumTotal = updated.reduce((s, v) => s + (v.stock || 0), 0);
+    setNewProd({
+      ...newProd,
+      opening_qty: sumTotal,
+      variants: updated,
+    });
+  };
+
+  // Add Item Save & Save and New
+  const handleSaveProduct = (andNew = false) => {
+    if (!newProd.article_no.trim() || !newProd.name.trim()) {
+      alert("Please provide both Item Name and Item Code (Article No).");
+      return;
+    }
+
+    const colorArray = newProd.color
+      ? newProd.color.split(",").map((c) => c.trim()).filter(Boolean)
+      : ["Black"];
+
+    const preparedVariants = newProd.variants.map((v) => ({
+      ...v,
+      color: v.color || (colorArray[0] || "Black"),
+      cost_price: Number(v.cost_price) || Number(newProd.cost_price) || 0,
+      selling_price: Number(v.selling_price) || Number(newProd.selling_price) || 0,
+      stock: Math.max(0, Number(v.stock) || 0),
+    }));
+
+    const prodToSave = {
+      ...newProd,
+      color: newProd.color,
+      colours: colorArray,
+      variants: preparedVariants,
+    };
+
+    addProduct(prodToSave);
+
+    if (andNew) {
+      const randomNum = Math.floor(100 + Math.random() * 900);
+      const prefix = (newProd.brand?.slice(0, 2) || "FW").toUpperCase();
+      setNewProd({
+        ...defaultNewProdTemplate,
+        article_no: `${prefix}-${randomNum}`,
+      });
+      setAddItemTab("stock");
+    } else {
+      setIsAddOpen(false);
+      setNewProd({ ...defaultNewProdTemplate });
+    }
+  };
 
   // Calculate high-level inventory totals (Issue 5: low-stock detection)
   const stats = useMemo(() => {
@@ -350,36 +544,9 @@ export default function InventoryView() {
     setEditingProd({ ...editingProd, variants: updated });
   };
 
-  const handleCreateProduct = (e) => {
-    e.preventDefault();
-    if (!newProd.article_no.trim() || !newProd.name.trim()) {
-      alert("Please provide both Article Code and Product Name.");
-      return;
-    }
-
-    addProduct(newProd);
-    setIsAddOpen(false);
-    // Reset form
-    setNewProd({
-      article_no: "",
-      name: "",
-      brand: "JD Signature",
-      category: "Gents",
-      sub_category: "Casual",
-      tax_rate: 12,
-      variants: [
-        { size: "6", color: "Black", cost_price: 600, selling_price: 1199, stock: 6 },
-        { size: "7", color: "Black", cost_price: 600, selling_price: 1199, stock: 8 },
-        { size: "8", color: "Black", cost_price: 600, selling_price: 1199, stock: 10 },
-        { size: "9", color: "Black", cost_price: 600, selling_price: 1199, stock: 8 },
-        { size: "10", color: "Black", cost_price: 600, selling_price: 1199, stock: 4 },
-      ],
-    });
-  };
-
   return (
     <div className="inventory-container">
-      {/* KPI TILES */}
+      {/* KPI TILES (Single-Line 4-Card Alignment) */}
       <div className="metrics-grid">
         <div className="metric-card">
           <div className="metric-header">
@@ -452,39 +619,22 @@ export default function InventoryView() {
           </div>
         </div>
 
+        {/* Unified 4th Card: Inventory Valuation & Margin */}
         <div className="metric-card">
           <div className="metric-header">
-            <span className="metric-title">Inventory Valuation</span>
-            <div className="metric-icon-wrap teal">
-              <DollarSign size={18} />
-            </div>
-          </div>
-          <div className="metric-value">{formatINR(stats.totalCostVal)}</div>
-          <div className="metric-footer">
-            <span>Wholesale purchase valuation</span>
-          </div>
-        </div>
-
-        <div className="metric-card">
-          <div className="metric-header">
-            <span className="metric-title">Retail Value & Margin</span>
+            <span className="metric-title">Valuation & Margin</span>
             <div className="metric-icon-wrap green">
               <TrendingUp size={18} />
             </div>
           </div>
-          <div className="metric-value">{formatINR(stats.totalRetailVal)}</div>
-          <div className="metric-footer positive">
-            <span>
-              ~
-              {stats.totalRetailVal > 0
-                ? Math.round(
-                    ((stats.totalRetailVal - stats.totalCostVal) /
-                      stats.totalRetailVal) *
-                      100
-                  )
-                : 0}
-              % Average Margin
+          <div className="metric-value" style={{ display: "flex", alignItems: "baseline", gap: "6px", flexWrap: "wrap" }}>
+            <span>{formatINR(stats.totalCostVal)}</span>
+            <span style={{ fontSize: "12px", fontWeight: 700, color: "#16a34a" }}>
+              (~{stats.totalRetailVal > 0 ? Math.round(((stats.totalRetailVal - stats.totalCostVal) / stats.totalRetailVal) * 100) : 0}% Margin)
             </span>
+          </div>
+          <div className="metric-footer positive">
+            <span>Wholesale: {formatINR(stats.totalCostVal)} · Retail: {formatINR(stats.totalRetailVal)}</span>
           </div>
         </div>
       </div>
@@ -837,32 +987,115 @@ export default function InventoryView() {
 
                 <div className="form-field">
                   <label>Category</label>
-                  <select
-                    value={editingProd.category}
-                    onChange={(e) =>
-                      setEditingProd({ ...editingProd, category: e.target.value })
-                    }
-                  >
-                    <option value="Gents">Gents (Men's Footwear)</option>
-                    <option value="Ladies">Ladies (Women's Footwear)</option>
-                    <option value="Boys">Boys (Kids' Footwear)</option>
-                    <option value="Girls">Girls (Kids' Footwear)</option>
-                  </select>
+                  <div className="select-with-add-wrapper">
+                    <select
+                      value={editingProd.category}
+                      onChange={(e) => {
+                        if (e.target.value === "__add_new__") {
+                          setDynamicAddModal({ type: "category", target: "edit", value: "" });
+                        } else {
+                          setEditingProd({ ...editingProd, category: e.target.value });
+                        }
+                      }}
+                    >
+                      {categoriesList.map((cat) => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
+                      <option value="__add_new__" style={{ fontWeight: 700, color: "#2563eb" }}>+ Add New Category...</option>
+                    </select>
+                    <button
+                      type="button"
+                      className="btn-quick-add-opt"
+                      onClick={() => setDynamicAddModal({ type: "category", target: "edit", value: "" })}
+                      title="Add New Category"
+                    >
+                      + Add
+                    </button>
+                  </div>
                 </div>
 
                 <div className="form-field">
-                  <label>GST Tax Slab (Issue 3)</label>
-                  <select
-                    value={editingProd.tax_rate}
+                  <label>Footwear Type</label>
+                  <div className="select-with-add-wrapper">
+                    <select
+                      value={editingProd.sub_category || "Casual"}
+                      onChange={(e) => {
+                        if (e.target.value === "__add_new__") {
+                          setDynamicAddModal({ type: "type", target: "edit", value: "" });
+                        } else {
+                          setEditingProd({ ...editingProd, sub_category: e.target.value });
+                        }
+                      }}
+                    >
+                      {footwearTypesList.map((ft) => (
+                        <option key={ft} value={ft}>{ft}</option>
+                      ))}
+                      <option value="__add_new__" style={{ fontWeight: 700, color: "#2563eb" }}>+ Add New Footwear Type...</option>
+                    </select>
+                    <button
+                      type="button"
+                      className="btn-quick-add-opt"
+                      onClick={() => setDynamicAddModal({ type: "type", target: "edit", value: "" })}
+                      title="Add New Footwear Type"
+                    >
+                      + Add
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="form-grid-3">
+                <div className="form-field">
+                  <label>Color / Available Colours</label>
+                  <input
+                    type="text"
+                    value={editingProd.color || ""}
+                    placeholder="e.g. Black, White, Brown"
                     onChange={(e) =>
-                      setEditingProd({ ...editingProd, tax_rate: Number(e.target.value) })
+                      setEditingProd({ ...editingProd, color: e.target.value })
                     }
-                  >
-                    <option value="5">5% (Footwear below ₹1,000)</option>
-                    <option value="12">12% (Footwear ₹1,000 & above)</option>
-                    <option value="18">18% Standard GST</option>
-                    <option value="0">0% Exempt</option>
-                  </select>
+                  />
+                </div>
+
+                <div className="form-field">
+                  <label>GST Tax Slab</label>
+                  <div className="select-with-add-wrapper">
+                    <select
+                      value={editingProd.tax_rate}
+                      onChange={(e) => {
+                        if (e.target.value === "__add_new__") {
+                          setDynamicAddModal({ type: "gst", target: "edit", value: "" });
+                        } else {
+                          setEditingProd({ ...editingProd, tax_rate: Number(e.target.value) });
+                        }
+                      }}
+                    >
+                      {gstRatesList.map((r) => (
+                        <option key={r} value={r}>{r}% GST</option>
+                      ))}
+                      <option value="__add_new__" style={{ fontWeight: 700, color: "#2563eb" }}>+ Add Custom GST Rate...</option>
+                    </select>
+                    <button
+                      type="button"
+                      className="btn-quick-add-opt"
+                      onClick={() => setDynamicAddModal({ type: "gst", target: "edit", value: "" })}
+                      title="Add Custom GST Rate"
+                    >
+                      + Add
+                    </button>
+                  </div>
+                </div>
+
+                <div className="form-field">
+                  <label>Location / Rack</label>
+                  <input
+                    type="text"
+                    value={editingProd.location || ""}
+                    placeholder="e.g. Rack A-12"
+                    onChange={(e) =>
+                      setEditingProd({ ...editingProd, location: e.target.value })
+                    }
+                  />
                 </div>
               </div>
 
@@ -1071,174 +1304,522 @@ export default function InventoryView() {
         </div>
       )}
 
-      {/* MODAL: ADD NEW FOOTWEAR */}
+      {/* MODAL: ADD ITEM (PHOTO-ACCURATE VYAPAR/ERP LAYOUT) */}
       {isAddOpen && (
         <div className="modal-backdrop" onClick={() => setIsAddOpen(false)}>
           <div
-            className="modal-content product-form-modal"
+            className="modal-content add-item-modal-dialog"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="modal-header">
-              <div>
-                <h3>Add New Footwear Article</h3>
-                <p>Register model details, pricing, and initial size quantities</p>
-              </div>
-              <button className="btn-close" onClick={() => setIsAddOpen(false)}>
-                <X size={18} />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateProduct} className="product-form">
-              <div className="form-grid-2">
-                <div className="form-field">
-                  <label>Article Code (e.g. ART-109)*</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="ART-109"
-                    value={newProd.article_no}
-                    onChange={(e) =>
-                      setNewProd({ ...newProd, article_no: e.target.value.toUpperCase() })
-                    }
-                  />
-                </div>
-
-                <div className="form-field">
-                  <label>Footwear Name / Model*</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Italian Leather Loafer"
-                    value={newProd.name}
-                    onChange={(e) =>
-                      setNewProd({ ...newProd, name: e.target.value })
-                    }
-                  />
-                </div>
-
-                <div className="form-field">
-                  <label>Brand</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. JD Signature, Bata, Woodland"
-                    value={newProd.brand}
-                    onChange={(e) =>
-                      setNewProd({ ...newProd, brand: e.target.value })
-                    }
-                  />
-                </div>
-
-                <div className="form-field">
-                  <label>Category</label>
-                  <select
-                    value={newProd.category}
-                    onChange={(e) =>
-                      setNewProd({ ...newProd, category: e.target.value })
-                    }
+            {/* Header */}
+            <div className="add-item-header">
+              <div className="add-item-header-left">
+                <h3 className="add-item-title">Add Item</h3>
+                {/* Product ● Service Toggle Switch */}
+                <div className="product-service-toggle">
+                  <span style={{ color: addItemType === "product" ? "#0f172a" : "#94a3b8", fontWeight: addItemType === "product" ? 700 : 500 }}>
+                    Product
+                  </span>
+                  <div
+                    className={`toggle-switch-track ${addItemType}`}
+                    onClick={() => setAddItemType(addItemType === "product" ? "service" : "product")}
+                    title="Toggle Product or Service"
                   >
-                    <option value="Gents">Gents (Men's Footwear)</option>
-                    <option value="Ladies">Ladies (Women's Footwear)</option>
-                    <option value="Boys">Boys (Kids' Footwear)</option>
-                    <option value="Girls">Girls (Kids' Footwear)</option>
-                  </select>
-                </div>
-
-                <div className="form-field">
-                  <label>Footwear Type</label>
-                  <select
-                    value={newProd.sub_category}
-                    onChange={(e) =>
-                      setNewProd({ ...newProd, sub_category: e.target.value })
-                    }
-                  >
-                    <option value="Casual">Casual</option>
-                    <option value="Formal">Formal</option>
-                    <option value="Sports">Sports / Sneakers</option>
-                    <option value="Sandals">Sandals / Slippers</option>
-                  </select>
-                </div>
-
-                <div className="form-field">
-                  <label>GST Rate</label>
-                  <select
-                    value={newProd.tax_rate}
-                    onChange={(e) =>
-                      setNewProd({ ...newProd, tax_rate: Number(e.target.value) })
-                    }
-                  >
-                    <option value="5">5% (Below ₹1,000)</option>
-                    <option value="12">12% (₹1,000 & above)</option>
-                    <option value="18">18% Standard</option>
-                  </select>
+                    <div className="toggle-switch-thumb"></div>
+                  </div>
+                  <span style={{ color: addItemType === "service" ? "#0f172a" : "#94a3b8", fontWeight: addItemType === "service" ? 700 : 500 }}>
+                    Service
+                  </span>
                 </div>
               </div>
 
-              {/* Variants / Sizes Builder */}
-              <div className="variant-builder-section">
-                <h4>Sizes & Initial Stock</h4>
-                <div className="variant-builder-grid">
-                  {newProd.variants.map((v, idx) => (
-                    <div key={idx} className="variant-row-card">
-                      <div className="v-size-tag">Size {v.size}</div>
-                      <div className="v-inputs">
-                        <div>
-                          <label>Pairs in Stock</label>
-                          <input
-                            type="number"
-                            min="0"
-                            value={v.stock}
-                            onChange={(e) => {
-                              const updated = [...newProd.variants];
-                              updated[idx].stock = Number(e.target.value);
-                              setNewProd({ ...newProd, variants: updated });
-                            }}
-                          />
-                        </div>
-                        <div>
-                          <label>Cost Price (₹)</label>
-                          <input
-                            type="number"
-                            min="0"
-                            value={v.cost_price}
-                            onChange={(e) => {
-                              const updated = [...newProd.variants];
-                              updated[idx].cost_price = Number(e.target.value);
-                              setNewProd({ ...newProd, variants: updated });
-                            }}
-                          />
-                        </div>
-                        <div>
-                          <label>Selling Price (₹)</label>
-                          <input
-                            type="number"
-                            min="0"
-                            value={v.selling_price}
-                            onChange={(e) => {
-                              const updated = [...newProd.variants];
-                              updated[idx].selling_price = Number(e.target.value);
-                              setNewProd({ ...newProd, variants: updated });
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="modal-footer">
+              <div className="add-item-header-actions">
                 <button
                   type="button"
-                  className="btn-secondary"
-                  onClick={() => setIsAddOpen(false)}
+                  className="header-icon-btn"
+                  title="Item Settings"
+                  onClick={() => alert("Item Settings: Footwear barcodes, auto-SKU, and tax defaults configured.")}
                 >
-                  Cancel
+                  <Settings size={18} />
                 </button>
-                <button type="submit" className="btn-primary">
-                  <Check size={16} /> Save Footwear Model
+                <button
+                  type="button"
+                  className="header-icon-btn"
+                  onClick={() => setIsAddOpen(false)}
+                  title="Close"
+                >
+                  <X size={18} />
                 </button>
               </div>
-            </form>
+            </div>
+
+            {/* Form Body */}
+            <div className="add-item-form-body">
+              {/* Row 1: Item Name *, Item HSN (with 🔍), Select Unit, Add Item Image */}
+              <div className="add-item-top-row">
+                <div className="clean-input-group">
+                  <input
+                    type="text"
+                    required
+                    className="clean-input"
+                    placeholder="Item Name *"
+                    value={newProd.name}
+                    onChange={(e) => setNewProd({ ...newProd, name: e.target.value })}
+                  />
+                </div>
+
+                <div className="clean-input-group hsn-input-wrap">
+                  <input
+                    type="text"
+                    className="clean-input"
+                    placeholder="Item HSN"
+                    value={newProd.hsn}
+                    onChange={(e) => setNewProd({ ...newProd, hsn: e.target.value })}
+                  />
+                  <span
+                    className="hsn-search-icon"
+                    title="Search HSN Code for Footwear"
+                    onClick={() => {
+                      const sampleHsn = prompt("Lookup HSN code (6404 for rubber/fabric soles, 6403 for leather):", newProd.hsn || "64041190");
+                      if (sampleHsn) setNewProd({ ...newProd, hsn: sampleHsn });
+                    }}
+                  >
+                    <Search size={15} />
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  className="btn-select-unit"
+                  onClick={() => {
+                    const nextUnits = ["Pairs", "Box", "Pieces", "Dozens"];
+                    const curIdx = nextUnits.indexOf(newProd.unit || "Pairs");
+                    const next = nextUnits[(curIdx + 1) % nextUnits.length];
+                    setNewProd({ ...newProd, unit: next });
+                  }}
+                  title="Click to toggle item unit"
+                >
+                  {newProd.unit || "Select Unit"} <ChevronDown size={13} />
+                </button>
+
+                <button
+                  type="button"
+                  className="btn-add-item-img"
+                  onClick={() => {
+                    const imgUrl = prompt("Enter footwear image URL or path:", newProd.image_url || "/assets/products/sx-701.jpg");
+                    if (imgUrl) setNewProd({ ...newProd, image_url: imgUrl });
+                  }}
+                  title="Upload / Set Footwear Image"
+                >
+                  <Camera size={14} />
+                  <span>{newProd.image_url ? "Image Added ✓" : "Add Item Image"}</span>
+                </button>
+              </div>
+
+              {/* Row 2: Category, Item Code with Assign Code button */}
+              <div className="add-item-second-row">
+                <div className="clean-input-group">
+                  <label>Category</label>
+                  <div className="select-with-add-wrapper">
+                    <select
+                      value={newProd.category}
+                      onChange={(e) => {
+                        if (e.target.value === "__add_new__") {
+                          setDynamicAddModal({ type: "category", target: "new", value: "" });
+                        } else {
+                          setNewProd({ ...newProd, category: e.target.value });
+                        }
+                      }}
+                    >
+                      {categoriesList.map((cat) => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
+                      <option value="__add_new__" style={{ fontWeight: 700, color: "#2563eb" }}>+ Add New Category...</option>
+                    </select>
+                    <button
+                      type="button"
+                      className="btn-quick-add-opt"
+                      onClick={() => setDynamicAddModal({ type: "category", target: "new", value: "" })}
+                      title="Add New Category"
+                    >
+                      + Add
+                    </button>
+                  </div>
+                </div>
+
+                <div className="clean-input-group">
+                  <label>Item Code (Article No)*</label>
+                  <div className="input-with-button">
+                    <input
+                      type="text"
+                      required
+                      className="clean-input"
+                      placeholder="e.g. SX-701"
+                      value={newProd.article_no}
+                      onChange={(e) => setNewProd({ ...newProd, article_no: e.target.value.toUpperCase() })}
+                    />
+                    <button
+                      type="button"
+                      className="btn-assign-code-inner"
+                      onClick={() => {
+                        const randomNum = Math.floor(100 + Math.random() * 900);
+                        const prefix = (newProd.brand?.slice(0, 2) || "FW").toUpperCase();
+                        setNewProd({ ...newProd, article_no: `${prefix}-${randomNum}` });
+                      }}
+                      title="Auto-generate item article code"
+                    >
+                      Assign Code
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Tabs Navigation: Pricing | Stock | Online Store (Stock has red underline) */}
+              <div className="add-item-tabs-bar">
+                <button
+                  type="button"
+                  className={`add-item-tab-link ${addItemTab === "pricing" ? "active" : ""}`}
+                  onClick={() => setAddItemTab("pricing")}
+                >
+                  Pricing
+                </button>
+                <button
+                  type="button"
+                  className={`add-item-tab-link ${addItemTab === "stock" ? "active" : ""}`}
+                  onClick={() => setAddItemTab("stock")}
+                >
+                  Stock
+                </button>
+                <button
+                  type="button"
+                  className={`add-item-tab-link ${addItemTab === "online" ? "active" : ""}`}
+                  onClick={() => setAddItemTab("online")}
+                >
+                  Online Store
+                </button>
+              </div>
+
+              {/* TAB 1: STOCK (User's Photo) */}
+              {addItemTab === "stock" && (
+                <div className="tab-content-panel">
+                  {/* Row 1: Opening Quantity (with Batch button), At Price, As Of Date */}
+                  <div className="stock-grid-row-1">
+                    <div className="clean-input-group">
+                      <label>Opening Quantity</label>
+                      <div className="opening-qty-box">
+                        <input
+                          type="number"
+                          min="0"
+                          className="clean-input"
+                          value={newProd.opening_qty}
+                          onChange={(e) => handleOpeningQtyChange(Number(e.target.value) || 0)}
+                        />
+                        <button
+                          type="button"
+                          className="batch-tag-btn"
+                          onClick={() => {
+                            const b = prompt("Enter Batch Number / Lot:", newProd.batch_no || "BAT-2026-A");
+                            if (b) setNewProd({ ...newProd, batch_no: b });
+                          }}
+                          title={`Batch: ${newProd.batch_no || "BAT-2026-A"}. Click to edit.`}
+                        >
+                          Batch
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="clean-input-group">
+                      <label>At Price (Cost Price ₹)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        className="clean-input"
+                        value={newProd.cost_price}
+                        onChange={(e) => {
+                          const cp = Number(e.target.value) || 0;
+                          setNewProd({
+                            ...newProd,
+                            cost_price: cp,
+                            variants: newProd.variants.map((v) => ({ ...v, cost_price: cp })),
+                          });
+                        }}
+                      />
+                    </div>
+
+                    <div className="clean-input-group">
+                      <label>As Of Date</label>
+                      <div className="date-input-wrap">
+                        <input
+                          type="date"
+                          className="clean-input"
+                          value={newProd.as_of_date}
+                          onChange={(e) => setNewProd({ ...newProd, as_of_date: e.target.value })}
+                        />
+                        <span className="date-calendar-icon">
+                          <Calendar size={15} />
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Row 2: Min Stock To Maintain, Location */}
+                  <div className="stock-grid-row-2">
+                    <div className="clean-input-group">
+                      <label>Min Stock To Maintain</label>
+                      <input
+                        type="number"
+                        min="0"
+                        className="clean-input"
+                        placeholder="e.g. 3 pairs retail / 30 pairs box"
+                        value={newProd.min_stock}
+                        onChange={(e) => setNewProd({ ...newProd, min_stock: Number(e.target.value) || 3 })}
+                      />
+                    </div>
+
+                    <div className="clean-input-group">
+                      <label>Location (Rack / Shelf)</label>
+                      <input
+                        type="text"
+                        className="clean-input"
+                        placeholder="e.g. Rack A-12, Ground Floor Shelf"
+                        value={newProd.location}
+                        onChange={(e) => setNewProd({ ...newProd, location: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Sizes Matrix & Stock Distribution */}
+                  <div style={{ marginTop: "12px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "6px", padding: "10px 14px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                      <span style={{ fontSize: "11px", fontWeight: 700, color: "#334155" }}>
+                        Size Breakdown & Quantities (Total: {newProd.variants.reduce((s, v) => s + (Number(v.stock) || 0), 0)} pairs)
+                      </span>
+                      <button
+                        type="button"
+                        className="btn-tiny"
+                        style={{ background: "#f0fdf4", color: "#16a34a", borderColor: "#bbf7d0", fontWeight: 700 }}
+                        onClick={handleAddSizeToNewProd}
+                      >
+                        <Plus size={11} /> Add Shoe Size
+                      </button>
+                    </div>
+
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: "8px" }}>
+                      {newProd.variants.map((v, idx) => (
+                        <div key={idx} style={{ background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: "6px", padding: "6px 8px", textAlign: "center" }}>
+                          <span style={{ fontSize: "11px", fontWeight: 800, color: "#0f172a", display: "block" }}>
+                            Size {v.size}
+                          </span>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "3px", marginTop: "4px" }}>
+                            <input
+                              type="number"
+                              min="0"
+                              value={v.stock}
+                              onChange={(e) => handleNewVariantStockChange(idx, Number(e.target.value))}
+                              style={{ width: "45px", height: "24px", border: "1px solid #cbd5e1", borderRadius: "4px", textAlign: "center", fontSize: "11.5px", fontWeight: 700 }}
+                            />
+                            <span style={{ fontSize: "10px", color: "#64748b" }}>prs</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 2: PRICING */}
+              {addItemTab === "pricing" && (
+                <div className="tab-content-panel">
+                  <div className="form-grid-3">
+                    <div className="clean-input-group">
+                      <label>Selling Price (₹)*</label>
+                      <input
+                        type="number"
+                        min="0"
+                        className="clean-input"
+                        value={newProd.selling_price}
+                        onChange={(e) => {
+                          const sp = Number(e.target.value) || 0;
+                          setNewProd({
+                            ...newProd,
+                            selling_price: sp,
+                            variants: newProd.variants.map((v) => ({ ...v, selling_price: sp })),
+                          });
+                        }}
+                      />
+                    </div>
+
+                    <div className="clean-input-group">
+                      <label>Purchase Price / Cost (₹)*</label>
+                      <input
+                        type="number"
+                        min="0"
+                        className="clean-input"
+                        value={newProd.cost_price}
+                        onChange={(e) => {
+                          const cp = Number(e.target.value) || 0;
+                          setNewProd({
+                            ...newProd,
+                            cost_price: cp,
+                            variants: newProd.variants.map((v) => ({ ...v, cost_price: cp })),
+                          });
+                        }}
+                      />
+                    </div>
+
+                    <div className="clean-input-group">
+                      <label>GST Rate %</label>
+                      <div className="select-with-add-wrapper">
+                        <select
+                          value={newProd.tax_rate}
+                          onChange={(e) => {
+                            if (e.target.value === "__add_new__") {
+                              setDynamicAddModal({ type: "gst", target: "new", value: "" });
+                            } else {
+                              setNewProd({ ...newProd, tax_rate: Number(e.target.value) });
+                            }
+                          }}
+                        >
+                          {gstRatesList.map((r) => (
+                            <option key={r} value={r}>{r}% GST</option>
+                          ))}
+                          <option value="__add_new__" style={{ fontWeight: 700, color: "#2563eb" }}>+ Add Custom GST Rate...</option>
+                        </select>
+                        <button
+                          type="button"
+                          className="btn-quick-add-opt"
+                          onClick={() => setDynamicAddModal({ type: "gst", target: "new", value: "" })}
+                          title="Add Custom GST Rate"
+                        >
+                          + Add
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="form-grid-3">
+                    <div className="clean-input-group">
+                      <label>Footwear Type</label>
+                      <div className="select-with-add-wrapper">
+                        <select
+                          value={newProd.sub_category}
+                          onChange={(e) => {
+                            if (e.target.value === "__add_new__") {
+                              setDynamicAddModal({ type: "type", target: "new", value: "" });
+                            } else {
+                              setNewProd({ ...newProd, sub_category: e.target.value });
+                            }
+                          }}
+                        >
+                          {footwearTypesList.map((ft) => (
+                            <option key={ft} value={ft}>{ft}</option>
+                          ))}
+                          <option value="__add_new__" style={{ fontWeight: 700, color: "#2563eb" }}>+ Add New Footwear Type...</option>
+                        </select>
+                        <button
+                          type="button"
+                          className="btn-quick-add-opt"
+                          onClick={() => setDynamicAddModal({ type: "type", target: "new", value: "" })}
+                          title="Add New Footwear Type"
+                        >
+                          + Add
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="clean-input-group">
+                      <label>Color / Available Colours</label>
+                      <input
+                        type="text"
+                        className="clean-input"
+                        placeholder="e.g. Black, White, Brown"
+                        value={newProd.color}
+                        onChange={(e) => setNewProd({ ...newProd, color: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="clean-input-group">
+                      <label>Brand</label>
+                      <input
+                        type="text"
+                        className="clean-input"
+                        placeholder="e.g. Sparx, Bata, Campus"
+                        value={newProd.brand}
+                        onChange={(e) => setNewProd({ ...newProd, brand: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Calculated Profit Margin Banner */}
+                  <div style={{ marginTop: "10px", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "6px", padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: "12px", color: "#166534", fontWeight: 600 }}>
+                      Expected Gross Margin per Pair:
+                    </span>
+                    <span style={{ fontSize: "13px", fontWeight: 800, color: "#15803d" }}>
+                      ₹{Math.max(0, (newProd.selling_price || 0) - (newProd.cost_price || 0))} Profit ({newProd.selling_price > 0 ? Math.round((((newProd.selling_price - newProd.cost_price) / newProd.selling_price) * 100)) : 0}% Margin)
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 3: ONLINE STORE */}
+              {addItemTab === "online" && (
+                <div className="tab-content-panel">
+                  <div className="clean-input-group" style={{ marginBottom: "14px" }}>
+                    <label>Master Barcode / EAN</label>
+                    <div className="input-with-button">
+                      <input
+                        type="text"
+                        className="clean-input"
+                        placeholder="e.g. FW890101 or scan barcode"
+                        value={newProd.barcode}
+                        onChange={(e) => setNewProd({ ...newProd, barcode: e.target.value })}
+                      />
+                      <button
+                        type="button"
+                        className="btn-assign-code-inner"
+                        onClick={() => {
+                          const clean = (newProd.article_no || "FW").replace(/[^A-Z0-9]/gi, "").slice(-4);
+                          setNewProd({ ...newProd, barcode: `890${clean}${Math.floor(100000 + Math.random() * 900000)}` });
+                        }}
+                      >
+                        Auto Barcode
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="clean-input-group">
+                    <label>Item Description & Online Notes</label>
+                    <textarea
+                      rows={3}
+                      className="clean-input"
+                      style={{ height: "auto", padding: "8px 12px", resize: "vertical" }}
+                      placeholder="Add model description, sole type, upper material, warranty details..."
+                      value={newProd.description}
+                      onChange={(e) => setNewProd({ ...newProd, description: e.target.value })}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer Buttons: Save & New (left) and Save (right) */}
+            <div className="add-item-modal-footer">
+              <button
+                type="button"
+                className="btn-save-new"
+                onClick={() => handleSaveProduct(true)}
+              >
+                Save & New
+              </button>
+              <button
+                type="button"
+                className="btn-save-item"
+                onClick={() => handleSaveProduct(false)}
+              >
+                Save
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1477,6 +2058,71 @@ export default function InventoryView() {
                 </button>
                 <button type="submit" className="btn-primary">
                   <Plus size={15} /> Save New Size Variant
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* INLINE DYNAMIC OPTION ADDER MODAL */}
+      {dynamicAddModal && (
+        <div className="inline-add-popover" onClick={() => setDynamicAddModal(null)}>
+          <div className="inline-add-card" onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
+              <h4 style={{ margin: 0, fontSize: "14px", fontWeight: 700, color: "#0f172a" }}>
+                {dynamicAddModal.type === "category" && "Add New Category"}
+                {dynamicAddModal.type === "type" && "Add New Footwear Type"}
+                {dynamicAddModal.type === "gst" && "Add Custom GST Rate (%)"}
+              </h4>
+              <button
+                type="button"
+                className="header-icon-btn"
+                onClick={() => setDynamicAddModal(null)}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveDynamicOption}>
+              <div style={{ marginBottom: "14px" }}>
+                <label style={{ fontSize: "11.5px", fontWeight: 600, color: "#64748b", display: "block", marginBottom: "4px" }}>
+                  {dynamicAddModal.type === "category" && "Category Name"}
+                  {dynamicAddModal.type === "type" && "Footwear Type Name"}
+                  {dynamicAddModal.type === "gst" && "Tax Rate Percentage (e.g. 28, 3, 12)"}
+                </label>
+                <input
+                  type={dynamicAddModal.type === "gst" ? "number" : "text"}
+                  autoFocus
+                  required
+                  className="clean-input"
+                  placeholder={
+                    dynamicAddModal.type === "category"
+                      ? "e.g. Unisex, Safety Shoes"
+                      : dynamicAddModal.type === "type"
+                      ? "e.g. Clogs, Loafers, Mules"
+                      : "e.g. 28"
+                  }
+                  value={dynamicAddModal.value}
+                  onChange={(e) => setDynamicAddModal({ ...dynamicAddModal, value: e.target.value })}
+                />
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px" }}>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setDynamicAddModal(null)}
+                  style={{ height: "34px", padding: "0 14px", fontSize: "12px" }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  style={{ height: "34px", padding: "0 16px", fontSize: "12px" }}
+                >
+                  Add Option
                 </button>
               </div>
             </form>

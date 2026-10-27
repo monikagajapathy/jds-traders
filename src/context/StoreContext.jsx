@@ -10,13 +10,13 @@ import { supabase } from "../services/supabase.js";
 const StoreContext = createContext();
 
 const STORAGE_KEYS = {
-  PRODUCTS: "jds_footwear_products_v1",
-  SALES: "jds_footwear_sales_v1",
-  SETTINGS: "jds_footwear_settings_v1",
-  NOTIFICATIONS: "jds_footwear_notifications_v1",
+  PRODUCTS: "jds_footwear_products_v4",
+  SALES: "jds_footwear_sales_v4",
+  SETTINGS: "jds_footwear_settings_v4",
+  NOTIFICATIONS: "jds_footwear_notifications_v4",
   USERS: "jds_footwear_users_v1",
   CURRENT_USER: "jds_current_user_v1",
-  STOCK_LOGS: "jds_footwear_stock_logs_v1",
+  STOCK_LOGS: "jds_footwear_stock_logs_v4",
 };
 
 const initialUsersList = [
@@ -29,41 +29,41 @@ const initialUsersList = [
 const initialStockLogs = [
   {
     id: "log-seed-1",
-    product_name: "Classic Derby Oxford Leather Shoes",
-    article_no: "ART-101",
-    delta: 12,
-    reason: "Restock Delivery",
-    note: "Initial warehouse intake verified",
-    adjusted_by: "Moni",
+    product_name: "Casual Sneaker",
+    article_no: "SX-701",
+    delta: 37,
+    reason: "Batch Inward Delivery",
+    note: "Batch BAT-2026-A initial stock verified",
+    adjusted_by: "Raj",
     created_at: new Date(Date.now() - 86400000 * 2).toISOString(),
   },
   {
     id: "log-seed-2",
-    product_name: "Rugged Adventure Nubuck Boots",
-    article_no: "ART-102",
-    delta: 6,
+    product_name: "Formal Leather Shoes",
+    article_no: "BT-852",
+    delta: 20,
     reason: "Restock Delivery",
-    note: "Supplier shipment #221 verified",
+    note: "Supplier shipment BAT-2026-B verified",
     adjusted_by: "Nishok",
     created_at: new Date(Date.now() - 86400000).toISOString(),
   },
   {
     id: "log-seed-3",
-    product_name: "Air Mesh Ultra Running Shoes",
-    article_no: "ART-103",
-    delta: 15,
+    product_name: "Ladies Fancy Flat",
+    article_no: "VK-04",
+    delta: 67,
     reason: "Restock Delivery",
-    note: "Festival seasonal stock arrival",
-    adjusted_by: "Raj",
+    note: "Stock intake BAT-2026-C verified",
+    adjusted_by: "Moni",
     created_at: new Date(Date.now() - 86400000 * 3).toISOString(),
   },
   {
     id: "log-seed-4",
-    product_name: "Kids Light-Up Active Sneaker",
-    article_no: "ART-109",
-    delta: 10,
+    product_name: "Kids Running Shoes",
+    article_no: "CP-990",
+    delta: 18,
     reason: "Restock Delivery",
-    note: "Back-to-school fresh intake",
+    note: "Campus intake BAT-2026-D",
     adjusted_by: "Aakif",
     created_at: new Date(Date.now() - 86400000 * 4).toISOString(),
   },
@@ -186,52 +186,8 @@ export function StoreProvider({ children }) {
       const saved = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          // Self-heal: ensure every product has its tiered size prices from initialProducts
-          const updated = parsed.map((p) => {
-            const initP = initialProducts.find(
-              (ip) => ip.id === p.id || ip.article_no === p.article_no
-            );
-            if (!initP) return p;
-
-            // Check if this product has flat identical prices across variants
-            const allSame =
-              p.variants &&
-              p.variants.length > 1 &&
-              p.variants.every(
-                (v) => Number(v.selling_price) === Number(p.variants[0].selling_price)
-              );
-
-            if (allSame) {
-              // Merge tiered prices from initialProducts while preserving current stock
-              const mergedVariants = p.variants.map((v) => {
-                const initV = initP.variants.find(
-                  (iv) => iv.id === v.id || String(iv.size) === String(v.size)
-                );
-                if (initV) {
-                  return {
-                    ...v,
-                    selling_price: initV.selling_price,
-                    cost_price: initV.cost_price,
-                    tax_rate: initV.tax_rate ?? (initV.selling_price >= 1000 ? 12 : 5),
-                  };
-                }
-                return v;
-              });
-              return { ...p, variants: mergedVariants };
-            }
-            return p;
-          });
-
-          // Ensure any missing initial products are also added
-          const missing = initialProducts.filter(
-            (ip) => !updated.some((p) => p.id === ip.id || p.article_no === ip.article_no)
-          );
-          const finalProds = [...updated, ...missing];
-          try {
-            localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(finalProds));
-          } catch {}
-          return finalProds;
+        if (Array.isArray(parsed) && parsed.length > 0 && parsed.some((p) => p.article_no === "SX-701")) {
+          return parsed;
         }
       }
       return initialProducts;
@@ -400,28 +356,44 @@ export function StoreProvider({ children }) {
             `);
 
           if (dbProducts && dbProducts.length > 0) {
-            const transformed = dbProducts.map((p) => ({
-              id: p.id,
-              name: p.name,
-              brand: p.brand,
-              category: p.category,
-              article_no: p.article_no,
-              tax_rate: 12,
-              variants: (p.product_variants || []).map((v) => {
-                const inv = Array.isArray(v.inventory) ? v.inventory[0] : v.inventory;
-                return {
-                  id: v.id,
-                  size: v.size,
-                  color: v.color || "Standard",
-                  sku: v.sku,
-                  barcode: v.barcode,
-                  selling_price: Number(v.selling_price) || 0,
-                  cost_price: Number(v.cost_price) || 0,
-                  stock: Number(inv?.quantity) || 0,
-                  reorder_level: Number(inv?.reorder_level) || 3,
-                };
-              }),
-            }));
+            const transformed = dbProducts.map((p) => {
+              const initP = initialProducts.find(
+                (ip) => ip.id === p.id || ip.article_no === p.article_no
+              );
+              return {
+                id: p.id,
+                name: p.name,
+                brand: p.brand,
+                category: p.category,
+                sub_category: initP?.sub_category || "Casual",
+                article_no: p.article_no,
+                tax_rate: initP?.tax_rate ?? (p.tax_rate || 5),
+                batch_no: initP?.batch_no || "BAT-2026-A",
+                serial_prefix: initP?.serial_prefix || `SN-${p.article_no}`,
+                barcode: initP?.barcode || p.product_variants?.[0]?.barcode || "",
+                colours: initP?.colours || "Standard",
+                image: initP?.image || `/assets/products/${p.article_no?.toLowerCase()}.jpg`,
+                is_active: p.is_active,
+                variants: (p.product_variants || []).map((v) => {
+                  const inv = Array.isArray(v.inventory) ? v.inventory[0] : v.inventory;
+                  const initV = initP?.variants?.find(
+                    (iv) => iv.id === v.id || String(iv.size) === String(v.size)
+                  );
+                  return {
+                    id: v.id,
+                    size: v.size,
+                    color: v.color || initV?.color || "Standard",
+                    sku: v.sku,
+                    barcode: v.barcode,
+                    selling_price: Number(v.selling_price) || initV?.selling_price || 0,
+                    cost_price: Number(v.cost_price) || initV?.cost_price || 0,
+                    tax_rate: initV?.tax_rate ?? (Number(v.selling_price) >= 1000 ? 12 : 5),
+                    stock: Number(inv?.quantity ?? initV?.stock ?? 0),
+                    reorder_level: Number(inv?.reorder_level) || 2,
+                  };
+                }),
+              };
+            });
             setProducts(transformed);
           }
 
