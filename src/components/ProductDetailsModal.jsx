@@ -3,45 +3,45 @@ import { X, Search, Plus, Minus, Package } from "lucide-react";
 import { formatINR } from "../utils/calculations.js";
 
 export default function ProductDetailsModal({ product, onClose, onAddToBill }) {
-  const [selectedCategory, setSelectedCategory] = useState("");
+  const [selectedColor, setSelectedColor] = useState("");
   const [selectedSize, setSelectedSize] = useState(null);
   const [quantity, setQuantity] = useState(1);
   const [sizeSearch, setSizeSearch] = useState("");
 
-  // Extract unique categories from variants if needed
-  // For now, using product's category as single category
-  const categories = useMemo(() => {
-    // In this implementation, each product belongs to one category
-    // But we keep the structure flexible for future multi-category support
-    return [product.category];
-  }, [product]);
+  // Extract unique colors from variants
+  const availableColors = useMemo(() => {
+    const colors = new Set();
+    product.variants?.forEach(v => {
+      if (v.color) colors.add(v.color);
+    });
+    return Array.from(colors);
+  }, [product.variants]);
 
-  // Initialize selected category
+  // Initialize selected color
   useEffect(() => {
-    if (categories.length > 0 && !selectedCategory) {
-      setSelectedCategory(categories[0]);
+    if (availableColors.length > 0 && !selectedColor) {
+      setSelectedColor(availableColors[0]);
     }
-  }, [categories, selectedCategory]);
+  }, [availableColors, selectedColor]);
 
-  // Filter variants by selected category and search
+  // Filter variants by selected color and search
   const availableVariants = useMemo(() => {
-    let filtered = product.variants;
+    let filtered = product.variants?.filter(v => v.color === selectedColor) || [];
 
     // Apply size search filter
     if (sizeSearch.trim()) {
       const searchLower = sizeSearch.toLowerCase().trim();
       filtered = filtered.filter((v) =>
-        v.size.toString().toLowerCase().includes(searchLower) ||
-        v.color?.toLowerCase().includes(searchLower)
+        v.size.toString().toLowerCase().includes(searchLower)
       );
     }
 
     return filtered;
-  }, [product.variants, sizeSearch]);
+  }, [product.variants, selectedColor, sizeSearch]);
 
   // Get selected variant details
   const selectedVariant = selectedSize
-    ? product.variants.find((v) => v.id === selectedSize)
+    ? product.variants?.find((v) => v.id === selectedSize)
     : null;
 
   const availableStock = selectedVariant?.stock || 0;
@@ -53,6 +53,13 @@ export default function ProductDetailsModal({ product, onClose, onAddToBill }) {
     if (newQty >= 1 && newQty <= maxQuantity) {
       setQuantity(newQty);
     }
+  };
+
+  // Handle color change
+  const handleColorChange = (color) => {
+    setSelectedColor(color);
+    setSelectedSize(null);
+    setQuantity(1);
   };
 
   // Handle add to bill
@@ -86,7 +93,7 @@ export default function ProductDetailsModal({ product, onClose, onAddToBill }) {
         <div className="product-modal-header">
           <div>
             <h3>Product Details & Size Selection</h3>
-            <p>Select size and quantity to add to bill</p>
+            <p>Select color, size and quantity to add to bill</p>
           </div>
           <button
             type="button"
@@ -116,37 +123,33 @@ export default function ProductDetailsModal({ product, onClose, onAddToBill }) {
                   {product.category} • {product.sub_category}
                 </span>
                 <span className="product-price-tag">
-                  {formatINR(product.variants[0]?.selling_price || 0)}
+                  {formatINR(product.variants?.[0]?.selling_price || 0)}
                 </span>
                 <span className="product-tax-tag">
                   {product.tax_rate}% GST
                 </span>
               </div>
               <div className="product-total-stock">
-                Total Stock: {product.variants.reduce((sum, v) => sum + (v.stock || 0), 0)} pairs
+                Total Stock: {product.variants?.reduce((sum, v) => sum + (v.stock || 0), 0) || 0} pairs
               </div>
             </div>
           </div>
 
-          {/* Category Selection (if multiple categories in future) */}
-          {categories.length > 1 && (
+          {/* Color Selection */}
+          {availableColors.length > 1 && (
             <div className="category-selection-section">
-              <label className="section-label">Category:</label>
+              <label className="section-label">Select Color:</label>
               <div className="category-buttons">
-                {categories.map((cat) => (
+                {availableColors.map((color) => (
                   <button
-                    key={cat}
+                    key={color}
                     type="button"
                     className={`category-select-btn ${
-                      selectedCategory === cat ? "active" : ""
+                      selectedColor === color ? "active" : ""
                     }`}
-                    onClick={() => {
-                      setSelectedCategory(cat);
-                      setSelectedSize(null);
-                      setQuantity(1);
-                    }}
+                    onClick={() => handleColorChange(color)}
                   >
-                    {cat}
+                    {color}
                   </button>
                 ))}
               </div>
@@ -154,13 +157,13 @@ export default function ProductDetailsModal({ product, onClose, onAddToBill }) {
           )}
 
           {/* Size Search (when many sizes) */}
-          {product.variants.length > 12 && (
+          {availableVariants.length > 12 && (
             <div className="size-search-section">
               <div className="size-search-box">
                 <Search size={14} />
                 <input
                   type="text"
-                  placeholder="Search size or color..."
+                  placeholder="Search size..."
                   value={sizeSearch}
                   onChange={(e) => setSizeSearch(e.target.value)}
                 />
@@ -184,7 +187,7 @@ export default function ProductDetailsModal({ product, onClose, onAddToBill }) {
             <div className="size-grid">
               {availableVariants.length === 0 ? (
                 <div className="no-sizes-message">
-                  No sizes match your search
+                  No sizes available for {selectedColor}
                 </div>
               ) : (
                 availableVariants.map((variant) => {

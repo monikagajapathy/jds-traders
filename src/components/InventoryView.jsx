@@ -191,6 +191,9 @@ export default function InventoryView() {
     location: "Rack A-12",
     barcode: "",
     description: "",
+    gst_inclusive: false,
+    availableColors: ["Black"],
+    availableSizes: ["6", "7", "8", "9", "10"],
     variants: [
       { size: "6", color: "Black", cost_price: 520, selling_price: 850, stock: 7 },
       { size: "7", color: "Black", cost_price: 520, selling_price: 850, stock: 10 },
@@ -198,9 +201,187 @@ export default function InventoryView() {
       { size: "9", color: "Black", cost_price: 520, selling_price: 850, stock: 6 },
       { size: "10", color: "Black", cost_price: 520, selling_price: 850, stock: 4 },
     ],
+    priceOverrides: [], // { color: string, size: string | null, selling_price: number, cost_price: number }
   };
 
   const [newProd, setNewProd] = useState(defaultNewProdTemplate);
+
+  // Color management functions
+  const handleAddColor = (colorName) => {
+    if (!colorName || !colorName.trim()) return;
+    const trimmed = colorName.trim();
+    if (newProd.availableColors.includes(trimmed)) {
+      alert("This color already exists");
+      return;
+    }
+    
+    const updatedColors = [...newProd.availableColors, trimmed];
+    const newVariants = [];
+    
+    // Create variants for the new color across all sizes
+    newProd.availableSizes.forEach(size => {
+      newVariants.push({
+        size,
+        color: trimmed,
+        cost_price: newProd.cost_price,
+        selling_price: newProd.selling_price,
+        stock: 0,
+      });
+    });
+    
+    setNewProd({
+      ...newProd,
+      availableColors: updatedColors,
+      variants: [...newProd.variants, ...newVariants],
+    });
+  };
+
+  const handleRemoveColor = (colorName) => {
+    const hasStock = newProd.variants.some(v => v.color === colorName && v.stock > 0);
+    if (hasStock) {
+      alert("Cannot remove a color that has stock. Please adjust stock to zero first.");
+      return;
+    }
+    
+    setNewProd({
+      ...newProd,
+      availableColors: newProd.availableColors.filter(c => c !== colorName),
+      variants: newProd.variants.filter(v => v.color !== colorName),
+      priceOverrides: newProd.priceOverrides.filter(o => o.color !== colorName),
+    });
+  };
+
+  const handleAddSize = (sizeName) => {
+    if (!sizeName || !sizeName.trim()) return;
+    const trimmed = sizeName.trim();
+    if (newProd.availableSizes.includes(trimmed)) {
+      alert("This size already exists");
+      return;
+    }
+    
+    const updatedSizes = [...newProd.availableSizes, trimmed].sort((a, b) => {
+      const numA = parseFloat(a);
+      const numB = parseFloat(b);
+      if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+      return a.localeCompare(b);
+    });
+    
+    const newVariants = [];
+    
+    // Create variants for the new size across all colors
+    newProd.availableColors.forEach(color => {
+      newVariants.push({
+        size: trimmed,
+        color,
+        cost_price: newProd.cost_price,
+        selling_price: newProd.selling_price,
+        stock: 0,
+      });
+    });
+    
+    setNewProd({
+      ...newProd,
+      availableSizes: updatedSizes,
+      variants: [...newProd.variants, ...newVariants],
+    });
+  };
+
+  const handleRemoveSize = (sizeName) => {
+    const hasStock = newProd.variants.some(v => v.size === sizeName && v.stock > 0);
+    if (hasStock) {
+      alert("Cannot remove a size that has stock. Please adjust stock to zero first.");
+      return;
+    }
+    
+    setNewProd({
+      ...newProd,
+      availableSizes: newProd.availableSizes.filter(s => s !== sizeName),
+      variants: newProd.variants.filter(v => v.size !== sizeName),
+      priceOverrides: newProd.priceOverrides.filter(o => o.size !== sizeName),
+    });
+  };
+
+  // Update stock for a specific color-size combination
+  const handleMatrixStockChange = (size, color, newStock) => {
+    const stock = Math.max(0, parseInt(newStock) || 0);
+    setNewProd({
+      ...newProd,
+      variants: newProd.variants.map(v =>
+        v.size === size && v.color === color ? { ...v, stock } : v
+      ),
+    });
+  };
+
+  // Get stock for a specific color-size combination
+  const getMatrixStock = (size, color) => {
+    const variant = newProd.variants.find(v => v.size === size && v.color === color);
+    return variant ? variant.stock : 0;
+  };
+
+  // Calculate totals
+  const getColorTotal = (color) => {
+    return newProd.variants
+      .filter(v => v.color === color)
+      .reduce((sum, v) => sum + (v.stock || 0), 0);
+  };
+
+  const getSizeTotal = (size) => {
+    return newProd.variants
+      .filter(v => v.size === size)
+      .reduce((sum, v) => sum + (v.stock || 0), 0);
+  };
+
+  const getGrandTotal = () => {
+    return newProd.variants.reduce((sum, v) => sum + (v.stock || 0), 0);
+  };
+
+  // Price override management
+  const handleAddPriceOverride = () => {
+    const color = prompt("Enter color for price override (or leave blank for all colors):");
+    const size = prompt("Enter size for price override (or leave blank for all sizes):");
+    const sellingPrice = prompt("Enter selling price override:", newProd.selling_price);
+    const costPrice = prompt("Enter cost price override:", newProd.cost_price);
+    
+    if (sellingPrice === null) return;
+    
+    const override = {
+      color: color?.trim() || null,
+      size: size?.trim() || null,
+      selling_price: parseFloat(sellingPrice) || newProd.selling_price,
+      cost_price: parseFloat(costPrice) || newProd.cost_price,
+    };
+    
+    setNewProd({
+      ...newProd,
+      priceOverrides: [...newProd.priceOverrides, override],
+    });
+  };
+
+  const handleRemovePriceOverride = (index) => {
+    setNewProd({
+      ...newProd,
+      priceOverrides: newProd.priceOverrides.filter((_, i) => i !== index),
+    });
+  };
+
+  // Get effective price for a variant (considering overrides)
+  const getEffectivePrice = (size, color, priceType = 'selling') => {
+    const basePrice = priceType === 'selling' ? newProd.selling_price : newProd.cost_price;
+    
+    // Check for exact size-color match
+    const exactMatch = newProd.priceOverrides.find(o => o.size === size && o.color === color);
+    if (exactMatch) return priceType === 'selling' ? exactMatch.selling_price : exactMatch.cost_price;
+    
+    // Check for color-only match
+    const colorMatch = newProd.priceOverrides.find(o => o.color === color && !o.size);
+    if (colorMatch) return priceType === 'selling' ? colorMatch.selling_price : colorMatch.cost_price;
+    
+    // Check for size-only match
+    const sizeMatch = newProd.priceOverrides.find(o => o.size === size && !o.color);
+    if (sizeMatch) return priceType === 'selling' ? sizeMatch.selling_price : sizeMatch.cost_price;
+    
+    return basePrice;
+  };
 
   // Open Combined Edit Product & Stock Adjustment Modal
   const handleOpenEditProduct = (prod) => {
@@ -403,23 +584,25 @@ export default function InventoryView() {
       return;
     }
 
-    const colorArray = newProd.color
-      ? newProd.color.split(",").map((c) => c.trim()).filter(Boolean)
-      : ["Black"];
-
-    const preparedVariants = newProd.variants.map((v) => ({
-      ...v,
-      color: v.color || (colorArray[0] || "Black"),
-      cost_price: Number(v.cost_price) || Number(newProd.cost_price) || 0,
-      selling_price: Number(v.selling_price) || Number(newProd.selling_price) || 0,
-      stock: Math.max(0, Number(v.stock) || 0),
-    }));
+    // Apply price overrides to variants
+    const preparedVariants = newProd.variants.map((v) => {
+      const effectiveSellingPrice = getEffectivePrice(v.size, v.color, 'selling');
+      const effectiveCostPrice = getEffectivePrice(v.size, v.color, 'cost');
+      
+      return {
+        ...v,
+        cost_price: effectiveCostPrice,
+        selling_price: effectiveSellingPrice,
+        stock: Math.max(0, Number(v.stock) || 0),
+      };
+    });
 
     const prodToSave = {
       ...newProd,
-      color: newProd.color,
-      colours: colorArray,
+      color: newProd.availableColors.join(", "),
+      colours: newProd.availableColors,
       variants: preparedVariants,
+      opening_qty: getGrandTotal(),
     };
 
     addProduct(prodToSave);
@@ -1499,20 +1682,20 @@ export default function InventoryView() {
                 </button>
               </div>
 
-              {/* TAB 1: STOCK (User's Photo) */}
+              {/* TAB 1: STOCK (Enhanced Color-Size Matrix) */}
               {addItemTab === "stock" && (
                 <div className="tab-content-panel">
-                  {/* Row 1: Opening Quantity (with Batch button), At Price, As Of Date */}
+                  {/* Row 1: Opening Quantity (Auto-calculated), At Price, As Of Date */}
                   <div className="stock-grid-row-1">
                     <div className="clean-input-group">
-                      <label>Opening Quantity</label>
+                      <label>Opening Quantity (Auto-calculated)</label>
                       <div className="opening-qty-box">
                         <input
                           type="number"
-                          min="0"
+                          disabled
                           className="clean-input"
-                          value={newProd.opening_qty}
-                          onChange={(e) => handleOpeningQtyChange(Number(e.target.value) || 0)}
+                          value={getGrandTotal()}
+                          style={{ background: "#f8fafc", cursor: "not-allowed" }}
                         />
                         <button
                           type="button"
@@ -1588,176 +1771,387 @@ export default function InventoryView() {
                     </div>
                   </div>
 
-                  {/* Sizes Matrix & Stock Distribution */}
-                  <div style={{ marginTop: "12px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "6px", padding: "10px 14px" }}>
+                  {/* Color Management */}
+                  <div style={{ marginTop: "16px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                      <span style={{ fontSize: "11px", fontWeight: 700, color: "#334155" }}>
-                        Size Breakdown & Quantities (Total: {newProd.variants.reduce((s, v) => s + (Number(v.stock) || 0), 0)} pairs)
-                      </span>
+                      <label style={{ fontSize: "11px", fontWeight: 700, color: "#334155" }}>
+                        Available Colors
+                      </label>
                       <button
                         type="button"
                         className="btn-tiny"
-                        style={{ background: "#f0fdf4", color: "#16a34a", borderColor: "#bbf7d0", fontWeight: 700 }}
-                        onClick={handleAddSizeToNewProd}
+                        style={{ background: "#eff6ff", color: "#1e3a8a", borderColor: "#bfdbfe" }}
+                        onClick={() => {
+                          const color = prompt("Enter new color name:", "");
+                          if (color) handleAddColor(color);
+                        }}
                       >
-                        <Plus size={11} /> Add Shoe Size
+                        <Plus size={11} /> Add Color
                       </button>
                     </div>
-
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: "8px" }}>
-                      {newProd.variants.map((v, idx) => (
-                        <div key={idx} style={{ background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: "6px", padding: "6px 8px", textAlign: "center" }}>
-                          <span style={{ fontSize: "11px", fontWeight: 800, color: "#0f172a", display: "block" }}>
-                            Size {v.size}
-                          </span>
-                          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "3px", marginTop: "4px" }}>
-                            <input
-                              type="number"
-                              min="0"
-                              value={v.stock}
-                              onChange={(e) => handleNewVariantStockChange(idx, Number(e.target.value))}
-                              style={{ width: "45px", height: "24px", border: "1px solid #cbd5e1", borderRadius: "4px", textAlign: "center", fontSize: "11.5px", fontWeight: 700 }}
-                            />
-                            <span style={{ fontSize: "10px", color: "#64748b" }}>prs</span>
-                          </div>
+                    <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                      {newProd.availableColors.map((color) => (
+                        <div
+                          key={color}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "6px",
+                            background: "#f1f5f9",
+                            border: "1px solid #cbd5e1",
+                            borderRadius: "16px",
+                            padding: "4px 10px",
+                            fontSize: "11px",
+                            fontWeight: 600,
+                          }}
+                        >
+                          <span style={{ width: "10px", height: "10px", borderRadius: "50%", background: "#64748b", border: "1px solid #94a3b8" }}></span>
+                          <span>{color}</span>
+                          {newProd.availableColors.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveColor(color)}
+                              style={{ border: 0, background: "transparent", cursor: "pointer", padding: "0 2px", color: "#64748b" }}
+                            >
+                              ×
+                            </button>
+                          )}
                         </div>
                       ))}
+                    </div>
+                  </div>
+
+                  {/* Color-Size Stock Matrix */}
+                  <div style={{ marginTop: "16px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "6px", padding: "12px 14px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+                      <div>
+                        <span style={{ fontSize: "12px", fontWeight: 700, color: "#334155", display: "block" }}>
+                          Size Breakdown & Quantities
+                        </span>
+                        <span style={{ fontSize: "10px", color: "#64748b" }}>
+                          Enter opening stock for each color and size. Totals are calculated automatically.
+                        </span>
+                      </div>
+                      <span style={{ fontSize: "13px", fontWeight: 800, color: "#16a34a", background: "#ecfdf5", padding: "4px 10px", borderRadius: "6px" }}>
+                        Total: {getGrandTotal()} pairs
+                      </span>
+                    </div>
+
+                    <div style={{ overflowX: "auto", maxWidth: "100%" }}>
+                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "11px", background: "#fff" }}>
+                        <thead>
+                          <tr style={{ background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>
+                            <th style={{ padding: "8px", textAlign: "left", fontWeight: 700, color: "#334155", position: "sticky", left: 0, background: "#f8fafc", zIndex: 2 }}>
+                              Size
+                            </th>
+                            {newProd.availableColors.map((color) => (
+                              <th key={color} style={{ padding: "8px", textAlign: "center", fontWeight: 700, color: "#334155", minWidth: "80px" }}>
+                                {color}
+                              </th>
+                            ))}
+                            <th style={{ padding: "8px", textAlign: "center", fontWeight: 700, color: "#16a34a", background: "#ecfdf5" }}>
+                              Total
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {newProd.availableSizes.map((size) => (
+                            <tr key={size} style={{ borderBottom: "1px solid #e2e8f0" }}>
+                              <td style={{ padding: "6px 8px", fontWeight: 700, color: "#0f172a", position: "sticky", left: 0, background: "#fff", zIndex: 1 }}>
+                                {size}
+                              </td>
+                              {newProd.availableColors.map((color) => (
+                                <td key={`${size}-${color}`} style={{ padding: "4px", textAlign: "center" }}>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    value={getMatrixStock(size, color)}
+                                    onChange={(e) => handleMatrixStockChange(size, color, e.target.value)}
+                                    style={{
+                                      width: "60px",
+                                      height: "28px",
+                                      border: "1px solid #cbd5e1",
+                                      borderRadius: "4px",
+                                      textAlign: "center",
+                                      fontSize: "11px",
+                                      fontWeight: 600,
+                                    }}
+                                  />
+                                </td>
+                              ))}
+                              <td style={{ padding: "6px 8px", textAlign: "center", fontWeight: 700, color: "#16a34a", background: "#f0fdf4" }}>
+                                {getSizeTotal(size)}
+                              </td>
+                            </tr>
+                          ))}
+                          <tr style={{ background: "#f0fdf4", borderTop: "2px solid #cbd5e1" }}>
+                            <td style={{ padding: "8px", fontWeight: 700, color: "#16a34a", position: "sticky", left: 0, background: "#f0fdf4", zIndex: 1 }}>
+                              Total
+                            </td>
+                            {newProd.availableColors.map((color) => (
+                              <td key={`total-${color}`} style={{ padding: "8px", textAlign: "center", fontWeight: 700, color: "#16a34a" }}>
+                                {getColorTotal(color)}
+                              </td>
+                            ))}
+                            <td style={{ padding: "8px", textAlign: "center", fontWeight: 800, color: "#15803d", fontSize: "13px" }}>
+                              {getGrandTotal()}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div style={{ marginTop: "10px", display: "flex", gap: "8px" }}>
+                      <button
+                        type="button"
+                        className="btn-tiny"
+                        onClick={() => {
+                          const size = prompt("Enter new size:", "");
+                          if (size) handleAddSize(size);
+                        }}
+                      >
+                        <Plus size={11} /> Add Size
+                      </button>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* TAB 2: PRICING */}
+              {/* TAB 2: PRICING (Enhanced with Overrides) */}
               {addItemTab === "pricing" && (
                 <div className="tab-content-panel">
-                  <div className="form-grid-3">
-                    <div className="clean-input-group">
-                      <label>Selling Price (₹)*</label>
-                      <input
-                        type="number"
-                        min="0"
-                        className="clean-input"
-                        value={newProd.selling_price}
-                        onChange={(e) => {
-                          const sp = Number(e.target.value) || 0;
-                          setNewProd({
-                            ...newProd,
-                            selling_price: sp,
-                            variants: newProd.variants.map((v) => ({ ...v, selling_price: sp })),
-                          });
-                        }}
-                      />
-                    </div>
-
-                    <div className="clean-input-group">
-                      <label>Purchase Price / Cost (₹)*</label>
-                      <input
-                        type="number"
-                        min="0"
-                        className="clean-input"
-                        value={newProd.cost_price}
-                        onChange={(e) => {
-                          const cp = Number(e.target.value) || 0;
-                          setNewProd({
-                            ...newProd,
-                            cost_price: cp,
-                            variants: newProd.variants.map((v) => ({ ...v, cost_price: cp })),
-                          });
-                        }}
-                      />
-                    </div>
-
-                    <div className="clean-input-group">
-                      <label>GST Rate %</label>
-                      <div className="select-with-add-wrapper">
-                        <select
-                          value={newProd.tax_rate}
+                  {/* Base Pricing Section */}
+                  <div style={{ marginBottom: "16px" }}>
+                    <h4 style={{ fontSize: "12px", fontWeight: 700, color: "#0f172a", marginBottom: "10px" }}>
+                      Base Pricing (Applies to all variants)
+                    </h4>
+                    <div className="form-grid-3">
+                      <div className="clean-input-group">
+                        <label>Selling Price (₹)*</label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          className="clean-input"
+                          value={newProd.selling_price}
                           onChange={(e) => {
-                            if (e.target.value === "__add_new__") {
-                              setDynamicAddModal({ type: "gst", target: "new", value: "" });
-                            } else {
-                              setNewProd({ ...newProd, tax_rate: Number(e.target.value) });
-                            }
+                            const sp = Number(e.target.value) || 0;
+                            setNewProd({
+                              ...newProd,
+                              selling_price: sp,
+                              variants: newProd.variants.map((v) => ({ ...v, selling_price: sp })),
+                            });
                           }}
-                        >
-                          {gstRatesList.map((r) => (
-                            <option key={r} value={r}>{r}% GST</option>
-                          ))}
-                          <option value="__add_new__" style={{ fontWeight: 700, color: "#2563eb" }}>+ Add Custom GST Rate...</option>
-                        </select>
-                        <button
-                          type="button"
-                          className="btn-quick-add-opt"
-                          onClick={() => setDynamicAddModal({ type: "gst", target: "new", value: "" })}
-                          title="Add Custom GST Rate"
-                        >
-                          + Add
-                        </button>
+                        />
+                      </div>
+
+                      <div className="clean-input-group">
+                        <label>Purchase Price / Cost (₹)*</label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          className="clean-input"
+                          value={newProd.cost_price}
+                          onChange={(e) => {
+                            const cp = Number(e.target.value) || 0;
+                            setNewProd({
+                              ...newProd,
+                              cost_price: cp,
+                              variants: newProd.variants.map((v) => ({ ...v, cost_price: cp })),
+                            });
+                          }}
+                        />
+                      </div>
+
+                      <div className="clean-input-group">
+                        <label>GST Rate %</label>
+                        <div className="select-with-add-wrapper">
+                          <select
+                            value={newProd.tax_rate}
+                            onChange={(e) => {
+                              if (e.target.value === "__add_new__") {
+                                setDynamicAddModal({ type: "gst", target: "new", value: "" });
+                              } else {
+                                setNewProd({ ...newProd, tax_rate: Number(e.target.value) });
+                              }
+                            }}
+                          >
+                            {gstRatesList.map((r) => (
+                              <option key={r} value={r}>{r}% GST</option>
+                            ))}
+                            <option value="__add_new__" style={{ fontWeight: 700, color: "#2563eb" }}>+ Add Custom GST Rate...</option>
+                          </select>
+                          <button
+                            type="button"
+                            className="btn-quick-add-opt"
+                            onClick={() => setDynamicAddModal({ type: "gst", target: "new", value: "" })}
+                            title="Add Custom GST Rate"
+                          >
+                            + Add
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ marginTop: "8px", display: "flex", alignItems: "center", gap: "10px" }}>
+                      <label style={{ fontSize: "11px", fontWeight: 600, color: "#334155", display: "flex", alignItems: "center", gap: "6px" }}>
+                        <input
+                          type="checkbox"
+                          checked={newProd.gst_inclusive}
+                          onChange={(e) => setNewProd({ ...newProd, gst_inclusive: e.target.checked })}
+                        />
+                        Price Includes GST
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Product Details */}
+                  <div style={{ marginBottom: "16px" }}>
+                    <div className="form-grid-3">
+                      <div className="clean-input-group">
+                        <label>Footwear Type</label>
+                        <div className="select-with-add-wrapper">
+                          <select
+                            value={newProd.sub_category}
+                            onChange={(e) => {
+                              if (e.target.value === "__add_new__") {
+                                setDynamicAddModal({ type: "type", target: "new", value: "" });
+                              } else {
+                                setNewProd({ ...newProd, sub_category: e.target.value });
+                              }
+                            }}
+                          >
+                            {footwearTypesList.map((ft) => (
+                              <option key={ft} value={ft}>{ft}</option>
+                            ))}
+                            <option value="__add_new__" style={{ fontWeight: 700, color: "#2563eb" }}>+ Add New Footwear Type...</option>
+                          </select>
+                          <button
+                            type="button"
+                            className="btn-quick-add-opt"
+                            onClick={() => setDynamicAddModal({ type: "type", target: "new", value: "" })}
+                            title="Add New Footwear Type"
+                          >
+                            + Add
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="clean-input-group">
+                        <label>Brand</label>
+                        <div className="select-with-add-wrapper">
+                          <input
+                            type="text"
+                            className="clean-input"
+                            placeholder="e.g. Sparx, Bata, Campus"
+                            value={newProd.brand}
+                            onChange={(e) => setNewProd({ ...newProd, brand: e.target.value })}
+                            list="brands-list"
+                          />
+                          <datalist id="brands-list">
+                            <option value="Sparx" />
+                            <option value="Bata" />
+                            <option value="Campus" />
+                            <option value="Red Tape" />
+                            <option value="Woodland" />
+                          </datalist>
+                        </div>
                       </div>
                     </div>
                   </div>
 
-                  <div className="form-grid-3">
-                    <div className="clean-input-group">
-                      <label>Footwear Type</label>
-                      <div className="select-with-add-wrapper">
-                        <select
-                          value={newProd.sub_category}
-                          onChange={(e) => {
-                            if (e.target.value === "__add_new__") {
-                              setDynamicAddModal({ type: "type", target: "new", value: "" });
-                            } else {
-                              setNewProd({ ...newProd, sub_category: e.target.value });
-                            }
-                          }}
-                        >
-                          {footwearTypesList.map((ft) => (
-                            <option key={ft} value={ft}>{ft}</option>
-                          ))}
-                          <option value="__add_new__" style={{ fontWeight: 700, color: "#2563eb" }}>+ Add New Footwear Type...</option>
-                        </select>
-                        <button
-                          type="button"
-                          className="btn-quick-add-opt"
-                          onClick={() => setDynamicAddModal({ type: "type", target: "new", value: "" })}
-                          title="Add New Footwear Type"
-                        >
-                          + Add
-                        </button>
+                  {/* Calculated Profit Margin */}
+                  <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "6px", padding: "12px 16px", marginBottom: "16px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
+                      <div>
+                        <span style={{ fontSize: "11px", color: "#166534", fontWeight: 600, display: "block" }}>
+                          Expected Profit per Pair:
+                        </span>
+                        <span style={{ fontSize: "15px", fontWeight: 800, color: "#15803d" }}>
+                          ₹{Math.max(0, (newProd.selling_price || 0) - (newProd.cost_price || 0)).toFixed(2)}
+                        </span>
                       </div>
-                    </div>
-
-                    <div className="clean-input-group">
-                      <label>Color / Available Colours</label>
-                      <input
-                        type="text"
-                        className="clean-input"
-                        placeholder="e.g. Black, White, Brown"
-                        value={newProd.color}
-                        onChange={(e) => setNewProd({ ...newProd, color: e.target.value })}
-                      />
-                    </div>
-
-                    <div className="clean-input-group">
-                      <label>Brand</label>
-                      <input
-                        type="text"
-                        className="clean-input"
-                        placeholder="e.g. Sparx, Bata, Campus"
-                        value={newProd.brand}
-                        onChange={(e) => setNewProd({ ...newProd, brand: e.target.value })}
-                      />
+                      <div>
+                        <span style={{ fontSize: "11px", color: "#166534", fontWeight: 600, display: "block" }}>
+                          Gross Margin:
+                        </span>
+                        <span style={{ fontSize: "15px", fontWeight: 800, color: "#15803d" }}>
+                          {newProd.selling_price > 0 ? ((((newProd.selling_price - newProd.cost_price) / newProd.selling_price) * 100).toFixed(2)) : 0}%
+                        </span>
+                      </div>
+                      {newProd.tax_rate > 0 && !newProd.gst_inclusive && (
+                        <div>
+                          <span style={{ fontSize: "11px", color: "#166534", fontWeight: 600, display: "block" }}>
+                            Selling Price + GST:
+                          </span>
+                          <span style={{ fontSize: "15px", fontWeight: 800, color: "#15803d" }}>
+                            ₹{(newProd.selling_price * (1 + newProd.tax_rate / 100)).toFixed(2)}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
 
-                  {/* Calculated Profit Margin Banner */}
-                  <div style={{ marginTop: "10px", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "6px", padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontSize: "12px", color: "#166534", fontWeight: 600 }}>
-                      Expected Gross Margin per Pair:
-                    </span>
-                    <span style={{ fontSize: "13px", fontWeight: 800, color: "#15803d" }}>
-                      ₹{Math.max(0, (newProd.selling_price || 0) - (newProd.cost_price || 0))} Profit ({newProd.selling_price > 0 ? Math.round((((newProd.selling_price - newProd.cost_price) / newProd.selling_price) * 100)) : 0}% Margin)
-                    </span>
+                  {/* Variant Price Overrides */}
+                  <div style={{ marginTop: "16px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: "6px", padding: "12px 16px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+                      <div>
+                        <h4 style={{ fontSize: "12px", fontWeight: 700, color: "#92400e", margin: 0 }}>
+                          Variant Price Overrides (Optional)
+                        </h4>
+                        <p style={{ fontSize: "10px", color: "#a16207", margin: "4px 0 0" }}>
+                          Base pricing applies to all colors and sizes. Add an override only when a specific variant has a different price.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn-tiny"
+                        style={{ background: "#fef3c7", color: "#92400e", borderColor: "#fde68a" }}
+                        onClick={handleAddPriceOverride}
+                      >
+                        <Plus size={11} /> Add Override
+                      </button>
+                    </div>
+
+                    {newProd.priceOverrides.length > 0 ? (
+                      <div style={{ marginTop: "10px" }}>
+                        <table style={{ width: "100%", fontSize: "11px", borderCollapse: "collapse" }}>
+                          <thead>
+                            <tr style={{ background: "#fef3c7", borderBottom: "1px solid #fde68a" }}>
+                              <th style={{ padding: "6px 8px", textAlign: "left", fontWeight: 700 }}>Color</th>
+                              <th style={{ padding: "6px 8px", textAlign: "left", fontWeight: 700 }}>Size</th>
+                              <th style={{ padding: "6px 8px", textAlign: "right", fontWeight: 700 }}>Selling Price</th>
+                              <th style={{ padding: "6px 8px", textAlign: "right", fontWeight: 700 }}>Cost Price</th>
+                              <th style={{ padding: "6px 8px", textAlign: "center", fontWeight: 700 }}>Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {newProd.priceOverrides.map((override, idx) => (
+                              <tr key={idx} style={{ borderBottom: "1px solid #fef3c7" }}>
+                                <td style={{ padding: "6px 8px" }}>{override.color || "All colors"}</td>
+                                <td style={{ padding: "6px 8px" }}>{override.size || "All sizes"}</td>
+                                <td style={{ padding: "6px 8px", textAlign: "right", fontWeight: 600 }}>₹{override.selling_price}</td>
+                                <td style={{ padding: "6px 8px", textAlign: "right", fontWeight: 600 }}>₹{override.cost_price}</td>
+                                <td style={{ padding: "6px 8px", textAlign: "center" }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemovePriceOverride(idx)}
+                                    style={{ border: 0, background: "transparent", cursor: "pointer", color: "#dc2626", fontSize: "14px" }}
+                                  >
+                                    ×
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <p style={{ fontSize: "11px", color: "#a16207", textAlign: "center", margin: "10px 0 0", fontStyle: "italic" }}>
+                        No price overrides set. Base pricing will apply to all variants.
+                      </p>
+                    )}
                   </div>
                 </div>
               )}
