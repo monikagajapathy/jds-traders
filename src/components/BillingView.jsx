@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { useStore } from "../context/StoreContext.jsx";
 import { formatINR } from "../utils/calculations.js";
+import ProductDetailsModal from "./ProductDetailsModal.jsx";
 
 const categories = [
   { id: "All", label: "All Items" },
@@ -57,8 +58,8 @@ export default function BillingView() {
   const [selectedColor, setSelectedColor] = useState("All");
   const [query, setQuery] = useState("");
 
-  // Product & Size Selection State for Docked Drawer (Matching Design Photo)
-  const [selectedProductId, setSelectedProductId] = useState(null);
+  // Product Selection State for Modal
+  const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedVariantId, setSelectedVariantId] = useState(null);
 
   // Customer Details State
@@ -94,46 +95,33 @@ export default function BillingView() {
     } catch {}
   };
 
-  // Derive active selected product & variant
-  const selectedProduct = useMemo(() => {
-    if (!selectedProductId) return null;
-    return products.find((p) => p.id === selectedProductId) || null;
-  }, [products, selectedProductId]);
-
-  const selectedVariant = useMemo(() => {
-    if (!selectedProduct) return null;
-    return selectedProduct.variants?.find((v) => v.id === selectedVariantId) || null;
-  }, [selectedProduct, selectedVariantId]);
-
-  // Handle card click: selects product and defaults to first in-stock variant
+  // Handle card click: opens modal
   const handleProductCardClick = (prod) => {
-    if (selectedProductId === prod.id) {
-      // Clicking same card again closes size panel
-      setSelectedProductId(null);
-      setSelectedVariantId(null);
-      return;
-    }
-
-    setSelectedProductId(prod.id);
-    const inStockVar = prod.variants?.find((v) => (v.stock || 0) > 0) || prod.variants?.[0] || null;
-    setSelectedVariantId(inStockVar ? inStockVar.id : null);
+    setSelectedProduct(prod);
   };
 
-  // Add selected variant from docked panel to bill
-  const handleAddSelectedToBill = () => {
-    if (!selectedProduct || !selectedVariant) return;
-    if ((selectedVariant.stock || 0) <= 0) {
-      alert(`Size ${selectedVariant.size} is currently out of stock.`);
+  // Handle add to bill from modal with quantity
+  const handleAddFromModal = (variant, product, quantity) => {
+    if (!variant || !product) return;
+    if ((variant.stock || 0) <= 0) {
+      alert(`Size ${variant.size} is currently out of stock.`);
       return;
     }
 
     playBeep();
-    addToCart(selectedVariant, selectedProduct);
+    
+    // Add the selected variant with the specified quantity
+    for (let i = 0; i < quantity; i++) {
+      addToCart(variant, product);
+    }
+
+    // Show non-intrusive toast notification
     setScanToast({
-      name: selectedProduct.name,
-      size: selectedVariant.size,
-      price: selectedVariant.selling_price,
-      barcode: selectedVariant.barcode || selectedProduct.barcode,
+      name: product.name,
+      size: variant.size,
+      price: variant.selling_price,
+      quantity: quantity,
+      barcode: variant.barcode || product.barcode,
     });
     setTimeout(() => setScanToast(null), 3000);
   };
@@ -275,13 +263,8 @@ export default function BillingView() {
           p.article_no?.toLowerCase() === raw.toLowerCase()
       );
       if (matchedProduct) {
-        // Auto-select product card and open size picker
-        setSelectedProductId(matchedProduct.id);
-        const firstAvailable =
-          matchedProduct.variants?.find((v) => (v.stock || 0) > 0) ||
-          matchedProduct.variants?.[0] ||
-          null;
-        setSelectedVariantId(firstAvailable ? firstAvailable.id : null);
+        // Open modal for size selection
+        setSelectedProduct(matchedProduct);
         playBeep();
         setBarcodeInput("");
         return;
@@ -487,7 +470,11 @@ export default function BillingView() {
           <div>
             <strong>✓ Added to Bill: {scanToast.name}</strong>
             <span>
-              Size: {scanToast.size} | {formatINR(scanToast.price)} | Barcode: {scanToast.barcode}
+              Size: {scanToast.size}
+              {scanToast.quantity && scanToast.quantity > 1 && ` × ${scanToast.quantity}`}
+              {" | "}
+              {formatINR(scanToast.price * (scanToast.quantity || 1))}
+              {scanToast.barcode && ` | Barcode: ${scanToast.barcode}`}
             </span>
           </div>
           <button
@@ -662,16 +649,16 @@ export default function BillingView() {
           ) : (
             <div className="footwear-card-grid">
               {filteredProducts.map((prod) => {
-                const isSelected = selectedProductId === prod.id;
                 const sellingPrice =
                   prod.variants?.[0]?.selling_price || prod.selling_price || 0;
                 const taxRate =
                   prod.tax_rate ?? (sellingPrice >= 1000 ? 12 : 5);
+                const totalStock = prod.variants?.reduce((sum, v) => sum + (v.stock || 0), 0) || 0;
 
                 return (
                   <div
                     key={prod.id}
-                    className={`footwear-card-photo ${isSelected ? "selected-card" : ""}`}
+                    className="footwear-card-photo clickable-product-card"
                     onClick={() => handleProductCardClick(prod)}
                     role="button"
                     tabIndex={0}
@@ -682,13 +669,6 @@ export default function BillingView() {
                       }
                     }}
                   >
-                    {/* Selected Checkmark Badge (Top Right) */}
-                    {isSelected && (
-                      <div className="card-selected-check-badge">
-                        <Check size={12} strokeWidth={3} />
-                      </div>
-                    )}
-
                     {/* Shoe Thumbnail (Left) */}
                     <div className="footwear-thumb-wrap">
                       <img
@@ -722,6 +702,19 @@ export default function BillingView() {
                         <span className="card-price-val">{formatINR(sellingPrice)}</span>
                         <span className="card-gst-pill">GST: {taxRate}%</span>
                       </div>
+
+                      <div className="card-stock-summary">
+                        <span className="stock-summary-label">
+                          {prod.variants?.length || 0} sizes
+                        </span>
+                        <span className={`stock-summary-count ${totalStock > 0 ? "in-stock" : "out-of-stock"}`}>
+                          {totalStock} pairs
+                        </span>
+                      </div>
+
+                      <div className="product-card-action-hint">
+                        Click to select size →
+                      </div>
                     </div>
                   </div>
                 );
@@ -730,89 +723,13 @@ export default function BillingView() {
           )}
         </div>
 
-        {/* DOCKED SIZE SELECTION DRAWER (Bottom of Catalogue - Exact Match with Photo) */}
+        {/* Product Details Modal */}
         {selectedProduct && (
-          <div className="docked-size-panel">
-            <div className="docked-size-header">
-              <div className="docked-product-meta">
-                <img
-                  src={selectedProduct.image || `/assets/products/${selectedProduct.article_no?.toLowerCase()}.jpg`}
-                  alt={selectedProduct.name}
-                  className="docked-product-thumb"
-                  onError={(e) => {
-                    e.target.style.display = "none";
-                  }}
-                />
-                <div>
-                  <h4 className="docked-title">
-                    Select size — {selectedProduct.article_no}
-                  </h4>
-                  <p className="docked-subtitle">{selectedProduct.name}</p>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                className="btn-docked-close"
-                onClick={() => {
-                  setSelectedProductId(null);
-                  setSelectedVariantId(null);
-                }}
-                title="Close size selection"
-              >
-                <X size={15} />
-              </button>
-            </div>
-
-            <div className="docked-size-body">
-              <div className="docked-sizes-col">
-                <span className="docked-available-label">
-                  Available sizes ({selectedProduct.category})
-                </span>
-
-                <div className="docked-size-buttons-scroll">
-                  {selectedProduct.variants?.map((v) => {
-                    const inStock = (v.stock || 0) > 0;
-                    const isSizeActive = selectedVariantId === v.id;
-
-                    return (
-                      <button
-                        key={v.id}
-                        type="button"
-                        disabled={!inStock}
-                        className={`docked-size-btn ${isSizeActive ? "active" : ""} ${
-                          !inStock ? "out-of-stock" : ""
-                        }`}
-                        onClick={() => setSelectedVariantId(v.id)}
-                        title={`Size ${v.size} • Stock: ${v.stock} pairs`}
-                      >
-                        <span className="size-label-main">{v.size}</span>
-                        <span className="size-stock-sub">
-                          {inStock ? `${v.stock} in stock` : "0 in stock"}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="docked-actions-col">
-                <span className="docked-selected-indicator">
-                  {selectedVariant ? `Selected: Size ${selectedVariant.size}` : "Select a size"}
-                </span>
-
-                <button
-                  type="button"
-                  className="btn-docked-add-bill"
-                  disabled={!selectedVariant || (selectedVariant.stock || 0) <= 0}
-                  onClick={handleAddSelectedToBill}
-                >
-                  <ShoppingCart size={15} /> Add to bill |{" "}
-                  {formatINR(selectedVariant ? selectedVariant.selling_price : (selectedProduct.variants?.[0]?.selling_price || 0))}
-                </button>
-              </div>
-            </div>
-          </div>
+          <ProductDetailsModal
+            product={selectedProduct}
+            onClose={() => setSelectedProduct(null)}
+            onAddToBill={handleAddFromModal}
+          />
         )}
       </div>
 
