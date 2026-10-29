@@ -1685,6 +1685,7 @@ export default function InventoryView() {
               {/* TAB 1: STOCK (Enhanced Color-Size Matrix) */}
               {addItemTab === "stock" && (
                 <div className="tab-content-panel">
+                  <div className="tab-content-scrollable">
                   {/* Row 1: Opening Quantity (Auto-calculated), At Price, As Of Date */}
                   <div className="stock-grid-row-1">
                     <div className="clean-input-group">
@@ -1774,17 +1775,32 @@ export default function InventoryView() {
                   {/* Size Breakdown & Quantities */}
                   <div style={{ marginTop: "16px" }}>
                     <div style={{ marginBottom: "12px" }}>
-                      <h4 style={{ fontSize: "12px", fontWeight: 700, color: "#0f172a", marginBottom: "4px" }}>
-                        Size Breakdown & Quantities
-                      </h4>
-                      <p style={{ fontSize: "10px", color: "#64748b", marginBottom: "8px" }}>
-                        Enter opening stock quantity. Up to 30 sizes can be added automatically.
-                      </p>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "8px" }}>
+                        <div>
+                          <h4 style={{ fontSize: "12px", fontWeight: 700, color: "#0f172a", marginBottom: "4px" }}>
+                            Size Breakdown & Quantities
+                          </h4>
+                          <p style={{ fontSize: "10px", color: "#64748b", marginBottom: "0" }}>
+                            Enter opening stock quantity. Up to 30 sizes can be added automatically.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          className="btn-tiny"
+                          style={{ background: "#eff6ff", color: "#1e40af", borderColor: "#bfdbfe", flexShrink: 0 }}
+                          onClick={() => {
+                            const size = prompt("Enter new size:", "");
+                            if (size) handleAddSize(size);
+                          }}
+                        >
+                          <Plus size={11} /> Add Size
+                        </button>
+                      </div>
                       
                       {/* Color Chips */}
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px", marginTop: "12px" }}>
                         <label style={{ fontSize: "11px", fontWeight: 600, color: "#64748b" }}>
-                          Available Colors (3)
+                          Available Colors ({newProd.availableColors.length})
                         </label>
                         <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                           {newProd.availableColors.map((color) => (
@@ -1820,8 +1836,8 @@ export default function InventoryView() {
                       </div>
                     </div>
 
-                    {/* Stock Table */}
-                    <div style={{ overflowX: "auto", maxWidth: "100%", border: "1px solid #e2e8f0", borderRadius: "8px" }}>
+                    {/* Stock Table - Scrollable */}
+                    <div className="table-scroll-wrapper">
                       <table className="stock-matrix-table">
                         <thead>
                           <tr>
@@ -1888,30 +1904,39 @@ export default function InventoryView() {
                       </table>
                     </div>
 
-                    <div style={{ marginTop: "12px", display: "flex", gap: "8px", justifyContent: "space-between", alignItems: "center" }}>
-                      <button
-                        type="button"
-                        className="btn-tiny"
-                        style={{ background: "#eff6ff", color: "#1e40af", borderColor: "#bfdbfe" }}
-                        onClick={() => {
-                          const size = prompt("Enter new size:", "");
-                          if (size) handleAddSize(size);
-                        }}
-                      >
-                        <Plus size={11} /> Add Size
-                      </button>
+                    <div style={{ marginTop: "12px" }}>
                       <span style={{ fontSize: "10px", color: "#3b82f6", display: "flex", alignItems: "center", gap: "4px" }}>
                         <AlertTriangle size={11} />
-                        Each cell represents quantity per dark specific color and size
+                        Each cell represents quantity per specific color and size
                       </span>
                     </div>
+                  </div>
+                  </div>
+
+                  {/* Save Buttons for Stock Tab */}
+                  <div className="tab-footer-buttons">
+                    <button
+                      type="button"
+                      className="btn-save-new"
+                      onClick={() => handleSaveProduct(true)}
+                    >
+                      Save & New
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-save-item"
+                      onClick={() => handleSaveProduct(false)}
+                    >
+                      Save
+                    </button>
                   </div>
                 </div>
               )}
 
-              {/* TAB 2: PRICING (Enhanced with Overrides) */}
+              {/* TAB 2: PRICING */}
               {addItemTab === "pricing" && (
                 <div className="tab-content-panel">
+                  <div className="tab-content-scrollable">
                   {/* Base Pricing Section */}
                   <div style={{ marginBottom: "16px" }}>
                     <h4 style={{ fontSize: "12px", fontWeight: 700, color: "#0f172a", marginBottom: "10px" }}>
@@ -1998,61 +2023,6 @@ export default function InventoryView() {
                     </div>
                   </div>
 
-                  {/* Product Details */}
-                  <div style={{ marginBottom: "16px" }}>
-                    <div className="form-grid-3">
-                      <div className="clean-input-group">
-                        <label>Footwear Type</label>
-                        <div className="select-with-add-wrapper">
-                          <select
-                            value={newProd.sub_category}
-                            onChange={(e) => {
-                              if (e.target.value === "__add_new__") {
-                                setDynamicAddModal({ type: "type", target: "new", value: "" });
-                              } else {
-                                setNewProd({ ...newProd, sub_category: e.target.value });
-                              }
-                            }}
-                          >
-                            {footwearTypesList.map((ft) => (
-                              <option key={ft} value={ft}>{ft}</option>
-                            ))}
-                            <option value="__add_new__" style={{ fontWeight: 700, color: "#2563eb" }}>+ Add New Footwear Type...</option>
-                          </select>
-                          <button
-                            type="button"
-                            className="btn-quick-add-opt"
-                            onClick={() => setDynamicAddModal({ type: "type", target: "new", value: "" })}
-                            title="Add New Footwear Type"
-                          >
-                            + Add
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="clean-input-group">
-                        <label>Brand</label>
-                        <div className="select-with-add-wrapper">
-                          <input
-                            type="text"
-                            className="clean-input"
-                            placeholder="e.g. Sparx, Bata, Campus"
-                            value={newProd.brand}
-                            onChange={(e) => setNewProd({ ...newProd, brand: e.target.value })}
-                            list="brands-list"
-                          />
-                          <datalist id="brands-list">
-                            <option value="Sparx" />
-                            <option value="Bata" />
-                            <option value="Campus" />
-                            <option value="Red Tape" />
-                            <option value="Woodland" />
-                          </datalist>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
                   {/* Calculated Profit Margin */}
                   <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "6px", padding: "12px 16px", marginBottom: "16px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
@@ -2093,7 +2063,7 @@ export default function InventoryView() {
                           Variant Price Overrides (Optional)
                         </h4>
                         <p style={{ fontSize: "10px", color: "#a16207", margin: "4px 0 0" }}>
-                          Base pricing applies to all colors and sizes. Add an override only when a specific variant has a different price.
+                          Set custom prices for specific color-size combinations
                         </p>
                       </div>
                       <button
@@ -2107,8 +2077,8 @@ export default function InventoryView() {
                     </div>
 
                     {newProd.priceOverrides.length > 0 ? (
-                      <div style={{ marginTop: "10px" }}>
-                        <table style={{ width: "100%", fontSize: "11px", borderCollapse: "collapse" }}>
+                      <div className="table-scroll-wrapper" style={{ marginTop: "10px" }}>
+                        <table style={{ width: "100%", fontSize: "11px", borderCollapse: "collapse", background: "#fff" }}>
                           <thead>
                             <tr style={{ background: "#fef3c7", borderBottom: "1px solid #fde68a" }}>
                               <th style={{ padding: "6px 8px", textAlign: "left", fontWeight: 700 }}>Color</th>
@@ -2145,12 +2115,32 @@ export default function InventoryView() {
                       </p>
                     )}
                   </div>
+                  </div>
+
+                  {/* Save Buttons for Pricing Tab */}
+                  <div className="tab-footer-buttons">
+                    <button
+                      type="button"
+                      className="btn-save-new"
+                      onClick={() => handleSaveProduct(true)}
+                    >
+                      Save & New
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-save-item"
+                      onClick={() => handleSaveProduct(false)}
+                    >
+                      Save
+                    </button>
+                  </div>
                 </div>
               )}
 
               {/* TAB 3: ONLINE STORE */}
               {addItemTab === "online" && (
                 <div className="tab-content-panel">
+                  <div className="tab-content-scrollable">
                   <div className="clean-input-group" style={{ marginBottom: "14px" }}>
                     <label>Master Barcode / EAN</label>
                     <div className="input-with-button">
@@ -2185,26 +2175,27 @@ export default function InventoryView() {
                       onChange={(e) => setNewProd({ ...newProd, description: e.target.value })}
                     />
                   </div>
+                  </div>
+
+                  {/* Save Buttons for Online Store Tab */}
+                  <div className="tab-footer-buttons">
+                    <button
+                      type="button"
+                      className="btn-save-new"
+                      onClick={() => handleSaveProduct(true)}
+                    >
+                      Save & New
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-save-item"
+                      onClick={() => handleSaveProduct(false)}
+                    >
+                      Save
+                    </button>
+                  </div>
                 </div>
               )}
-            </div>
-
-            {/* Footer Buttons: Save & New (left) and Save (right) */}
-            <div className="add-item-modal-footer">
-              <button
-                type="button"
-                className="btn-save-new"
-                onClick={() => handleSaveProduct(true)}
-              >
-                Save & New
-              </button>
-              <button
-                type="button"
-                className="btn-save-item"
-                onClick={() => handleSaveProduct(false)}
-              >
-                Save
-              </button>
             </div>
           </div>
         </div>

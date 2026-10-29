@@ -3744,7 +3744,36 @@
 
 /* Tab Content Areas */
 .tab-content-panel {
+  display: flex;
+  flex-direction: column;
   min-height: 220px;
+  max-height: calc(75vh - 200px);
+}
+
+.tab-content-scrollable {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px;
+  margin-bottom: 16px;
+}
+
+.tab-content-scrollable::-webkit-scrollbar {
+  width: 6px;
+}
+
+.tab-content-scrollable::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 3px;
+}
+
+.tab-content-scrollable::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.tab-content-scrollable::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
 }
 
 .stock-grid-row-1 {
@@ -4540,16 +4569,51 @@
 
 
 /* Stock Matrix Table Styles */
+.table-scroll-wrapper {
+  overflow-x: auto;
+  overflow-y: auto;
+  max-width: 100%;
+  max-height: 350px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  position: relative;
+  display: block;
+}
+
+.table-scroll-wrapper::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.table-scroll-wrapper::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.table-scroll-wrapper::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.table-scroll-wrapper::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
 .stock-matrix-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 11.5px;
   background: #fff;
+  min-width: 600px;
+  display: table;
 }
 
 .stock-matrix-table thead tr {
   background: #f8fafc;
   border-bottom: 1px solid #e2e8f0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .stock-matrix-table thead th {
@@ -4559,6 +4623,15 @@
   color: #334155;
   font-size: 11px;
   white-space: nowrap;
+  background: #f8fafc;
+}
+
+.stock-matrix-table thead th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 11;
+  background: #f8fafc;
+  text-align: left;
 }
 
 .stock-matrix-table tbody tr {
@@ -4573,11 +4646,35 @@
   padding: 6px 12px;
   text-align: center;
   color: #0f172a;
+  white-space: nowrap;
+}
+
+.stock-matrix-table tbody td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 5;
+  background: #fff;
+  text-align: left;
+}
+
+.stock-matrix-table tbody tr:hover td:first-child {
+  background: #fafafa;
 }
 
 .stock-matrix-table tfoot tr.total-row {
   background: #d1fae5;
   border-top: 2px solid #86efac;
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+}
+
+.stock-matrix-table tfoot tr.total-row td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 11;
+  background: #d1fae5;
+  text-align: left;
 }
 
 .stock-matrix-table tfoot td {
@@ -4703,4 +4800,124 @@
 .btn-icon-delete:hover {
   color: #ef4444;
   background: #fee2e2;
+}
+
+
+/* Price Preview Table Styles */
+.price-preview-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11.5px;
+  background: #fff;
+}
+
+.price-preview-table thead tr {
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.price-preview-table thead th {
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 700;
+  color: #334155;
+  font-size: 11px;
+}
+
+.price-preview-table tbody tr {
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.price-preview-table tbody tr:hover {
+  background: #fafafa;
+}
+
+.price-preview-table tbody td {
+  padding: 8px 12px;
+  color: #0f172a;
+  font-size: 11.5px;
+}
+
+/* Price Override Table Styles */
+.price-override-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11.5px;
+  background: #fff;
+}
+
+.price-override-table thead tr {
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.price-override-table thead th {
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 700;
+  color: #334155;
+  font-size: 11px;
+}
+
+.price-override-table tbody tr {
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.price-override-table tbody tr:hover {
+  background: #fafafa;
+}
+
+.price-override-table tbody td {
+  padding: 8px 12px;
+  color: #0f172a;
+  font-size: 11.5px;
+}
+
+/* Form Grid Layout */
+.form-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 768px) {
+  .form-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* Tab Footer Buttons */
+.tab-footer-buttons {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
+  gap: 12px;
+  background: #fff;
+  position: sticky;
+  bottom: 0;
+  z-index: 15;
+}
+
+.tab-footer-buttons .btn-save-new {
+  flex: 0 0 auto;
+}
+
+.tab-footer-buttons .btn-save-item {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+@media (max-width: 768px) {
+  .tab-footer-buttons {
+    flex-direction: column-reverse;
+  }
+  
+  .tab-footer-buttons .btn-save-new,
+  .tab-footer-buttons .btn-save-item {
+    width: 100%;
+    margin-left: 0;
+  }
 }
