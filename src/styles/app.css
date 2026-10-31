@@ -5108,6 +5108,7 @@
 }
 
 
+
 /* Stock Control and Product Details styles: intentionally scoped away from modal styles */
 .stock-control-table-panel { overflow: hidden; }
 .stock-control-table-scroll, .stock-detail-table-scroll { width: 100%; overflow-x: auto; }
@@ -5323,3 +5324,4 @@
   .barcode-preview-meta { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .barcode-preview-actions { flex-wrap: wrap; }
 }
+
