@@ -42,7 +42,7 @@
   height: min(520px, 46vw);
   pointer-events: none;
   z-index: 0;
-  opacity: 0.038;
+  opacity: 0.016;
   user-select: none;
   display: flex;
   align-items: center;
@@ -54,6 +54,7 @@
   height: 100%;
   object-fit: contain;
   border-radius: 50%;
+  filter: grayscale(100%) contrast(85%);
 }
 
 .nav-caption { color: #8794ab; font-size: 9px; font-weight: 700; letter-spacing: 1.5px; padding: 0 10px 8px; }
@@ -1923,7 +1924,7 @@
   width: 250px;
   height: 250px;
   pointer-events: none;
-  opacity: 0.055;
+  opacity: 0.025;
   z-index: 0;
   display: flex;
   align-items: center;
@@ -1934,6 +1935,7 @@
   height: 100%;
   object-fit: contain;
   border-radius: 50%;
+  filter: grayscale(100%) contrast(85%);
 }
 .receipt-header { text-align: center; position: relative; z-index: 1; }
 .receipt-brand-logo-wrap {
@@ -2753,7 +2755,7 @@
   height: min(380px, 75%);
   pointer-events: none;
   z-index: 0;
-  opacity: 0.12;
+  opacity: 0.03;
   user-select: none;
   display: flex;
   align-items: center;
@@ -2765,6 +2767,7 @@
   height: 100%;
   object-fit: contain;
   border-radius: 50%;
+  filter: grayscale(100%) contrast(85%);
 }
 
 .statement-modal {
@@ -3440,7 +3443,7 @@
     transform: translate(-50%, -50%) !important;
     width: 260px !important;
     height: 260px !important;
-    opacity: 0.10 !important;
+    opacity: 0.035 !important;
     display: flex !important;
   }
 }
