@@ -468,26 +468,6 @@ export default function BillingView() {
   const cashBalance = Math.round((cashReceivedNum - grandTotal) * 100) / 100;
   const isCashGiven = cashReceived !== "" && !isNaN(cashReceivedNum) && cashReceivedNum > 0;
 
-  const quickCashOptions = useMemo(() => {
-    if (!grandTotal || grandTotal <= 0) return [];
-    const options = new Set();
-    const ceil100 = Math.ceil(grandTotal / 100) * 100;
-    const ceil500 = Math.ceil(grandTotal / 500) * 500;
-    const ceil1000 = Math.ceil(grandTotal / 1000) * 1000;
-    const ceil2000 = Math.ceil(grandTotal / 2000) * 2000;
-
-    if (ceil100 > grandTotal) options.add(ceil100);
-    if (ceil500 > grandTotal) options.add(ceil500);
-    if (ceil1000 > grandTotal) options.add(ceil1000);
-    if (ceil2000 > grandTotal) options.add(ceil2000);
-
-    [100, 200, 500, 1000, 2000].forEach((note) => {
-      if (note > grandTotal) options.add(note);
-    });
-
-    return Array.from(options).sort((a, b) => a - b).slice(0, 3);
-  }, [grandTotal]);
-
   // Auto-sync split payment amounts when grand total changes
   useEffect(() => {
     if (paymentMethod === "Split") {
@@ -529,9 +509,7 @@ export default function BillingView() {
     }
     const cleanPhone = customerPhone.trim().replace(/\D/g, "");
     if (!cleanPhone || cleanPhone.length < 10) {
-      setCustomerError(
-        "Customer 10-digit mobile number is mandatory (or click 'Walk-in Auto-fill')."
-      );
+      setCustomerError("Customer 10-digit mobile number is mandatory.");
       return;
     }
 
@@ -1019,27 +997,13 @@ export default function BillingView() {
           </div>
         </div>
 
-        {/* Customer Details Card (Mandatory * & Walk-in Auto-fill) */}
+        {/* Customer Details Card (Mandatory *) */}
         <div className="pos-customer-card">
           <div className="pos-customer-header">
             <div className="customer-header-title">
               <User size={14} style={{ color: "#d97706" }} />
               <strong>Customer Details</strong>
               <span className="customer-mandatory-badge">MANDATORY *</span>
-            </div>
-            <div className="customer-header-actions">
-              <button
-                type="button"
-                className="btn-quick-walkin"
-                onClick={() => {
-                  setCustomerName("Walk-in Customer");
-                  setCustomerPhone("9999999999");
-                  setCustomerError("");
-                }}
-                title="Auto-fill Walk-in Customer"
-              >
-                ⚡ Walk-in Auto-fill
-              </button>
             </div>
           </div>
 
@@ -1347,36 +1311,6 @@ export default function BillingView() {
                       : `- ${formatINR(Math.abs(cashBalance))}`}
                   </div>
                 </div>
-              </div>
-
-              {/* Quick Cash Tender Options */}
-              <div className="quick-cash-pills">
-                <button
-                  type="button"
-                  className="quick-cash-btn"
-                  onClick={() => setCashReceived(grandTotal.toString())}
-                >
-                  Exact ({formatINR(grandTotal)})
-                </button>
-                {quickCashOptions.map((amt) => (
-                  <button
-                    key={amt}
-                    type="button"
-                    className="quick-cash-btn"
-                    onClick={() => setCashReceived(amt.toString())}
-                  >
-                    ₹{amt}
-                  </button>
-                ))}
-                {cashReceived && (
-                  <button
-                    type="button"
-                    className="quick-cash-btn clear"
-                    onClick={() => setCashReceived("")}
-                  >
-                    Clear
-                  </button>
-                )}
               </div>
             </div>
           )}
