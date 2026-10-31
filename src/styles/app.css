@@ -42,7 +42,7 @@
   height: min(520px, 46vw);
   pointer-events: none;
   z-index: 0;
-  opacity: 0.016;
+  opacity: 0.05;
   user-select: none;
   display: flex;
   align-items: center;
@@ -1924,7 +1924,7 @@
   width: 250px;
   height: 250px;
   pointer-events: none;
-  opacity: 0.025;
+  opacity: 0.08;
   z-index: 0;
   display: flex;
   align-items: center;
@@ -2755,7 +2755,7 @@
   height: min(380px, 75%);
   pointer-events: none;
   z-index: 0;
-  opacity: 0.03;
+  opacity: 0.09;
   user-select: none;
   display: flex;
   align-items: center;
