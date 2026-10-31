@@ -725,6 +725,8 @@ export function StoreProvider({ children }) {
     taxRate = 5,
     paymentMethod = "Cash",
     paymentSplit = null,
+    cashTendered = null,
+    changeReturned = null,
     notes = "",
   }) => {
     if (cart.length === 0) return null;
@@ -844,6 +846,8 @@ export function StoreProvider({ children }) {
       gst_breakdown: gstBreakdown,
       payment_method: paymentMethod,
       payment_split: paymentMethod === "Split" ? paymentSplit : null,
+      cash_tendered: paymentMethod === "Cash" ? cashTendered : null,
+      change_returned: paymentMethod === "Cash" ? changeReturned : null,
       notes: notes || "Over-the-counter sale",
       items: saleItems,
     };

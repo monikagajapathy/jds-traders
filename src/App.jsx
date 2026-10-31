@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -114,6 +114,21 @@ function MainWorkspace() {
   const selected = moduleText[activeTab] || moduleText.billing;
   const unreadCount = notifications.filter((n) => n.unread).length;
 
+  // Role-based navigation: Admin has all tabs. Staff has strictly Billing, Dashboard, and Products & Inventory.
+  const visibleNavItems = useMemo(() => {
+    if (isAdmin) return navigation;
+    return navigation.filter((item) =>
+      ["billing", "dashboard", "inventory"].includes(item.id)
+    );
+  }, [isAdmin]);
+
+  // If a staff user is on a restricted tab, automatically fallback to billing
+  useEffect(() => {
+    if (!isAdmin && !["billing", "dashboard", "inventory"].includes(activeTab)) {
+      setActiveTab("billing");
+    }
+  }, [isAdmin, activeTab, setActiveTab]);
+
   // Show Login Screen if not authenticated
   if (!isAuthenticated) {
     return <LoginView />;
@@ -135,7 +150,7 @@ function MainWorkspace() {
 
         <div className="nav-caption">WORKSPACE</div>
         <nav className="sidebar-nav-scroll">
-          {navigation.map(({ id, label, icon: Icon }) => (
+          {visibleNavItems.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               className={`nav-item ${activeTab === id ? "active" : ""}`}
@@ -418,9 +433,9 @@ function MainWorkspace() {
           {activeTab === "dashboard" && <DashboardView />}
           {activeTab === "billing" && <BillingView />}
           {activeTab === "inventory" && <InventoryView />}
-          {activeTab === "transactions" && <TransactionsView />}
-          {activeTab === "reports" && <ReportsView />}
-          {activeTab === "settings" && <SettingsView />}
+          {isAdmin && activeTab === "transactions" && <TransactionsView />}
+          {isAdmin && activeTab === "reports" && <ReportsView />}
+          {isAdmin && activeTab === "settings" && <SettingsView />}
         </ViewErrorBoundary>
       </main>
 

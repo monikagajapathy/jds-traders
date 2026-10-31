@@ -960,17 +960,19 @@ export default function InventoryView() {
               <p>{selectedProduct.brand} <span>·</span> {selectedProduct.category} <span>·</span> {selectedProduct.sub_category}</p>
               <span className="stock-details-article">Article: {selectedProduct.article_no}</span>
             </div>
-            <div className="stock-details-actions">
-              <button type="button" className="stock-secondary-action" onClick={() => handleOpenEditProduct(selectedProduct, "Product Details Edit")}>
-                <Edit2 size={14} /> Edit Product
-              </button>
-              <button type="button" className="stock-secondary-action" onClick={() => openStockOperation(selectedProduct, "add")}>
-                <PackagePlus size={14} /> Add Stock
-              </button>
-              <button type="button" className="stock-primary-action" onClick={() => openStockOperation(selectedProduct, "edit")}>
-                <SlidersHorizontal size={14} /> Edit Stock
-              </button>
-            </div>
+            {isAdmin && (
+              <div className="stock-details-actions">
+                <button type="button" className="stock-secondary-action" onClick={() => handleOpenEditProduct(selectedProduct, "Product Details Edit")}>
+                  <Edit2 size={14} /> Edit Product
+                </button>
+                <button type="button" className="stock-secondary-action" onClick={() => openStockOperation(selectedProduct, "add")}>
+                  <PackagePlus size={14} /> Add Stock
+                </button>
+                <button type="button" className="stock-primary-action" onClick={() => openStockOperation(selectedProduct, "edit")}>
+                  <SlidersHorizontal size={14} /> Edit Stock
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="stock-detail-metrics">
@@ -988,7 +990,7 @@ export default function InventoryView() {
               </div>
               <div className="stock-detail-table-scroll">
                 <table className="custom-table stock-detail-table">
-                  <thead><tr><th>Size</th><th>Color</th><th>SKU / Barcode</th><th className="center-cell">Available Stock</th><th>Status</th><th className="center-cell">Actions</th></tr></thead>
+                  <thead><tr><th>Size</th><th>Color</th><th>SKU / Barcode</th><th className="center-cell">Available Stock</th><th>Status</th>{isAdmin && <th className="center-cell">Actions</th>}</tr></thead>
                   <tbody>
                     {selectedProduct.variants.map((variant) => {
                       const quantity = Number(variant.stock) || 0;
@@ -1017,20 +1019,22 @@ export default function InventoryView() {
                             ) : <strong>{quantity} <small>pairs</small></strong>}
                           </td>
                           <td><span className={`stock-status-tag ${out ? "out" : low ? "low" : "healthy"}`}><i />{out ? "Out of Stock" : low ? "Low Stock" : "In Stock"}</span></td>
-                          <td className="center-cell">
-                            {isEditing ? (
-                              <div className="stock-inline-actions">
-                                <button type="button" className="save" onClick={() => saveSizeStockEdit(variant)}><Save size={13} /> Save</button>
-                                <button type="button" className="cancel" onClick={cancelSizeStockEdit}>Cancel</button>
-                              </div>
-                            ) : (
-                              <button type="button" className="stock-row-edit-button" onClick={() => beginSizeStockEdit(variant)}
-                                disabled={editingStockVariantId !== null}
-                                title={`Edit stock for size ${variant.size} (${variant.color || "Standard"})`}>
-                                <Edit2 size={13} /> Edit
-                              </button>
-                            )}
-                          </td>
+                          {isAdmin && (
+                            <td className="center-cell">
+                              {isEditing ? (
+                                <div className="stock-inline-actions">
+                                  <button type="button" className="save" onClick={() => saveSizeStockEdit(variant)}><Save size={13} /> Save</button>
+                                  <button type="button" className="cancel" onClick={cancelSizeStockEdit}>Cancel</button>
+                                </div>
+                              ) : (
+                                <button type="button" className="stock-row-edit-button" onClick={() => beginSizeStockEdit(variant)}
+                                  disabled={editingStockVariantId !== null}
+                                  title={`Edit stock for size ${variant.size} (${variant.color || "Standard"})`}>
+                                  <Edit2 size={13} /> Edit
+                                </button>
+                              )}
+                            </td>
+                          )}
                         </tr>
                       );
                     })}
@@ -1042,7 +1046,17 @@ export default function InventoryView() {
             <aside className="stock-details-side-column">
               <section className="panel stock-product-info-panel">
                 <div className="stock-detail-product-image">
-                  {selectedProduct.image ? <img src={selectedProduct.image} alt={selectedProduct.name} /> : <PackagePlus size={42} />}
+                  {selectedProduct.image ? (
+                    <img
+                      src={selectedProduct.image}
+                      alt={selectedProduct.name}
+                      onError={(e) => {
+                        e.currentTarget.style.display = "none";
+                      }}
+                    />
+                  ) : (
+                    <PackagePlus size={42} />
+                  )}
                 </div>
                 <h3>Product Information</h3>
                 <dl>
@@ -1241,13 +1255,15 @@ export default function InventoryView() {
               </button>
             )}
 
-            <button
-              className="btn-primary"
-              onClick={() => setIsAddOpen(true)}
-              style={{ padding: "0 16px", height: "40px" }}
-            >
-              <Plus size={16} /> Add Footwear
-            </button>
+            {isAdmin && (
+              <button
+                className="btn-primary"
+                onClick={() => setIsAddOpen(true)}
+                style={{ padding: "0 16px", height: "40px" }}
+              >
+                <Plus size={16} /> Add Footwear
+              </button>
+            )}
           </div>
         </div>
 
@@ -1318,8 +1334,12 @@ export default function InventoryView() {
                     <td className="center-cell">
                       <div className="stock-row-actions">
                         <button type="button" className="stock-view-button" onClick={() => { setSelectedProductId(prod.id); cancelSizeStockEdit(); }}><Eye size={13} /> View</button>
-                        <button type="button" className="stock-icon-action" onClick={() => handleOpenEditProduct(prod)} title="Edit product details" aria-label={`Edit ${prod.name}`}><Edit2 size={14} /></button>
-                        <button type="button" className="stock-icon-action danger" onClick={() => { if (confirm(`Delete ${prod.name} (${prod.article_no}) from catalog?`)) deleteProduct(prod.id); }} title="Delete product" aria-label={`Delete ${prod.name}`}><Trash2 size={14} /></button>
+                        {isAdmin && (
+                          <>
+                            <button type="button" className="stock-icon-action" onClick={() => handleOpenEditProduct(prod)} title="Edit product details" aria-label={`Edit ${prod.name}`}><Edit2 size={14} /></button>
+                            <button type="button" className="stock-icon-action danger" onClick={() => { if (confirm(`Delete ${prod.name} (${prod.article_no}) from catalog?`)) deleteProduct(prod.id); }} title="Delete product" aria-label={`Delete ${prod.name}`}><Trash2 size={14} /></button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -1399,60 +1419,30 @@ export default function InventoryView() {
 
                 <div className="form-field">
                   <label>Category</label>
-                  <div className="select-with-add-wrapper">
-                    <select
-                      value={editingProd.category}
-                      onChange={(e) => {
-                        if (e.target.value === "__add_new__") {
-                          setDynamicAddModal({ type: "category", target: "edit", value: "" });
-                        } else {
-                          setEditingProd({ ...editingProd, category: e.target.value });
-                        }
-                      }}
-                    >
-                      {categoriesList.map((cat) => (
-                        <option key={cat} value={cat}>{cat}</option>
-                      ))}
-                      <option value="__add_new__" style={{ fontWeight: 700, color: "#2563eb" }}>+ Add New Category...</option>
-                    </select>
-                    <button
-                      type="button"
-                      className="btn-quick-add-opt"
-                      onClick={() => setDynamicAddModal({ type: "category", target: "edit", value: "" })}
-                      title="Add New Category"
-                    >
-                      + Add
-                    </button>
-                  </div>
+                  <select
+                    value={editingProd.category}
+                    onChange={(e) =>
+                      setEditingProd({ ...editingProd, category: e.target.value })
+                    }
+                  >
+                    {categoriesList.map((cat) => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="form-field">
                   <label>Footwear Type</label>
-                  <div className="select-with-add-wrapper">
-                    <select
-                      value={editingProd.sub_category || "Casual"}
-                      onChange={(e) => {
-                        if (e.target.value === "__add_new__") {
-                          setDynamicAddModal({ type: "type", target: "edit", value: "" });
-                        } else {
-                          setEditingProd({ ...editingProd, sub_category: e.target.value });
-                        }
-                      }}
-                    >
-                      {footwearTypesList.map((ft) => (
-                        <option key={ft} value={ft}>{ft}</option>
-                      ))}
-                      <option value="__add_new__" style={{ fontWeight: 700, color: "#2563eb" }}>+ Add New Footwear Type...</option>
-                    </select>
-                    <button
-                      type="button"
-                      className="btn-quick-add-opt"
-                      onClick={() => setDynamicAddModal({ type: "type", target: "edit", value: "" })}
-                      title="Add New Footwear Type"
-                    >
-                      + Add
-                    </button>
-                  </div>
+                  <select
+                    value={editingProd.sub_category || "Casual"}
+                    onChange={(e) =>
+                      setEditingProd({ ...editingProd, sub_category: e.target.value })
+                    }
+                  >
+                    {footwearTypesList.map((ft) => (
+                      <option key={ft} value={ft}>{ft}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -1471,31 +1461,16 @@ export default function InventoryView() {
 
                 <div className="form-field">
                   <label>GST Tax Slab</label>
-                  <div className="select-with-add-wrapper">
-                    <select
-                      value={editingProd.tax_rate}
-                      onChange={(e) => {
-                        if (e.target.value === "__add_new__") {
-                          setDynamicAddModal({ type: "gst", target: "edit", value: "" });
-                        } else {
-                          setEditingProd({ ...editingProd, tax_rate: Number(e.target.value) });
-                        }
-                      }}
-                    >
-                      {gstRatesList.map((r) => (
-                        <option key={r} value={r}>{r}% GST</option>
-                      ))}
-                      <option value="__add_new__" style={{ fontWeight: 700, color: "#2563eb" }}>+ Add Custom GST Rate...</option>
-                    </select>
-                    <button
-                      type="button"
-                      className="btn-quick-add-opt"
-                      onClick={() => setDynamicAddModal({ type: "gst", target: "edit", value: "" })}
-                      title="Add Custom GST Rate"
-                    >
-                      + Add
-                    </button>
-                  </div>
+                  <select
+                    value={editingProd.tax_rate}
+                    onChange={(e) =>
+                      setEditingProd({ ...editingProd, tax_rate: Number(e.target.value) })
+                    }
+                  >
+                    {gstRatesList.map((r) => (
+                      <option key={r} value={r}>{r}% GST</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="form-field">

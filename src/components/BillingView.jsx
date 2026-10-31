@@ -8,6 +8,7 @@ import {
   User,
   CreditCard,
   Banknote,
+  Coins,
   QrCode,
   Tag,
   Check,
@@ -88,6 +89,7 @@ export default function BillingView() {
   const [paymentMethod, setPaymentMethod] = useState("Split");
   const [splitCash, setSplitCash] = useState(0);
   const [splitUpi, setSplitUpi] = useState(0);
+  const [cashReceived, setCashReceived] = useState("");
 
   // Barcode Scanner State
   const [barcodeInput, setBarcodeInput] = useState("");
@@ -461,6 +463,31 @@ export default function BillingView() {
   const grandTotal = Math.round((taxableAmount + taxAmount) * 100) / 100;
   const totalItemsCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
+  // Cash Payment Tender & Balance Calculations
+  const cashReceivedNum = Number(cashReceived) || 0;
+  const cashBalance = Math.round((cashReceivedNum - grandTotal) * 100) / 100;
+  const isCashGiven = cashReceived !== "" && !isNaN(cashReceivedNum) && cashReceivedNum > 0;
+
+  const quickCashOptions = useMemo(() => {
+    if (!grandTotal || grandTotal <= 0) return [];
+    const options = new Set();
+    const ceil100 = Math.ceil(grandTotal / 100) * 100;
+    const ceil500 = Math.ceil(grandTotal / 500) * 500;
+    const ceil1000 = Math.ceil(grandTotal / 1000) * 1000;
+    const ceil2000 = Math.ceil(grandTotal / 2000) * 2000;
+
+    if (ceil100 > grandTotal) options.add(ceil100);
+    if (ceil500 > grandTotal) options.add(ceil500);
+    if (ceil1000 > grandTotal) options.add(ceil1000);
+    if (ceil2000 > grandTotal) options.add(ceil2000);
+
+    [100, 200, 500, 1000, 2000].forEach((note) => {
+      if (note > grandTotal) options.add(note);
+    });
+
+    return Array.from(options).sort((a, b) => a - b).slice(0, 3);
+  }, [grandTotal]);
+
   // Auto-sync split payment amounts when grand total changes
   useEffect(() => {
     if (paymentMethod === "Split") {
@@ -470,7 +497,7 @@ export default function BillingView() {
     }
   }, [grandTotal, paymentMethod]);
 
-  // Split payment helpers
+  // Payment method selection helpers
   const handleSelectPaymentMethod = (method) => {
     setPaymentMethod(method);
     if (method === "Split") {
@@ -528,6 +555,8 @@ export default function BillingView() {
       billDiscount: totalDiscount,
       paymentMethod,
       paymentSplit: splitData,
+      cashTendered: paymentMethod === "Cash" && isCashGiven ? cashReceivedNum : null,
+      changeReturned: paymentMethod === "Cash" && isCashGiven ? Math.max(0, cashBalance) : null,
     });
 
     // Reset form
@@ -536,6 +565,7 @@ export default function BillingView() {
     setBillDiscount(0);
     setSplitCash(0);
     setSplitUpi(0);
+    setCashReceived("");
   };
 
   const resetAllFilters = () => {
@@ -1257,6 +1287,96 @@ export default function BillingView() {
                     />
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* Cash Payment Controls (Amount Received & Balance Calculation) */}
+          {paymentMethod === "Cash" && (
+            <div className="cash-payment-card">
+              <div className="cash-header">
+                <span className="cash-title">Cash Payment & Change:</span>
+                {isCashGiven && (
+                  <span
+                    className={`cash-status-badge ${
+                      cashBalance >= 0 ? "balanced" : "unbalanced"
+                    }`}
+                  >
+                    {cashBalance >= 0
+                      ? `✓ Return ₹${cashBalance.toFixed(2)}`
+                      : `Due ₹${Math.abs(cashBalance).toFixed(2)}`}
+                  </span>
+                )}
+              </div>
+
+              <div className="cash-inputs-grid">
+                <div className="cash-field">
+                  <label className="cash-label">
+                    <Banknote size={12} style={{ color: "#16a34a" }} /> Amount Received
+                  </label>
+                  <div className="cash-input-box">
+                    <span className="cash-curr-sign">₹</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={cashReceived}
+                      onChange={(e) => setCashReceived(e.target.value)}
+                      placeholder={grandTotal ? grandTotal.toString() : "0.00"}
+                    />
+                  </div>
+                </div>
+
+                <div className="cash-field">
+                  <label className="cash-label">
+                    <Coins size={12} style={{ color: "#d97706" }} /> Balance to Return
+                  </label>
+                  <div
+                    className={`cash-balance-display ${
+                      !isCashGiven
+                        ? "neutral"
+                        : cashBalance >= 0
+                        ? "positive"
+                        : "negative"
+                    }`}
+                  >
+                    {!isCashGiven
+                      ? "₹0.00"
+                      : cashBalance >= 0
+                      ? formatINR(cashBalance)
+                      : `- ${formatINR(Math.abs(cashBalance))}`}
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Cash Tender Options */}
+              <div className="quick-cash-pills">
+                <button
+                  type="button"
+                  className="quick-cash-btn"
+                  onClick={() => setCashReceived(grandTotal.toString())}
+                >
+                  Exact ({formatINR(grandTotal)})
+                </button>
+                {quickCashOptions.map((amt) => (
+                  <button
+                    key={amt}
+                    type="button"
+                    className="quick-cash-btn"
+                    onClick={() => setCashReceived(amt.toString())}
+                  >
+                    ₹{amt}
+                  </button>
+                ))}
+                {cashReceived && (
+                  <button
+                    type="button"
+                    className="quick-cash-btn clear"
+                    onClick={() => setCashReceived("")}
+                  >
+                    Clear
+                  </button>
+                )}
               </div>
             </div>
           )}

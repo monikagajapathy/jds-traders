@@ -1444,6 +1444,188 @@
   transition: all 0.12s ease;
 }
 
+/* Cash Payment Tender & Balance Calculation */
+.cash-payment-card {
+  display: block !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin: 6px 0 10px;
+}
+
+.cash-header {
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px !important;
+  width: 100%;
+}
+
+.cash-title {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.cash-status-badge {
+  font-size: 9.5px;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.cash-status-badge.balanced {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.cash-status-badge.unbalanced {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.cash-inputs-grid {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  margin-bottom: 8px;
+}
+
+.cash-field {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  min-width: 0 !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.cash-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #334155;
+  margin-bottom: 4px;
+  white-space: nowrap;
+}
+
+.cash-input-box {
+  display: flex !important;
+  align-items: center !important;
+  background: #ffffff !important;
+  border: 1.5px solid #cbd5e1 !important;
+  border-radius: 6px !important;
+  height: 34px !important;
+  padding: 0 8px !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  transition: all 0.15s ease;
+}
+
+.cash-input-box:focus-within {
+  border-color: #16a34a !important;
+  box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.12) !important;
+}
+
+.cash-curr-sign {
+  font-weight: 700;
+  color: #64748b;
+  font-size: 12px;
+  margin-right: 4px;
+}
+
+.cash-input-box input {
+  border: none !important;
+  outline: none !important;
+  width: 100% !important;
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  color: #101c35 !important;
+  background: transparent !important;
+}
+
+.cash-balance-display {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  height: 34px;
+  padding: 0 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 800;
+  box-sizing: border-box;
+  background: #ffffff;
+  border: 1.5px solid #cbd5e1;
+  letter-spacing: -0.2px;
+}
+
+.cash-balance-display.positive {
+  background: #f0fdf4;
+  color: #15803d;
+  border-color: #86efac;
+}
+
+.cash-balance-display.negative {
+  background: #fef2f2;
+  color: #b91c1c;
+  border-color: #fca5a5;
+}
+
+.cash-balance-display.neutral {
+  background: #f8fafc;
+  color: #64748b;
+  border-color: #e2e8f0;
+}
+
+.quick-cash-pills {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.quick-cash-btn {
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 650;
+  padding: 3px 7px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.quick-cash-btn:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+.quick-cash-btn.clear {
+  color: #dc2626;
+  border-color: #fecaca;
+  background: #fff5f5;
+  margin-left: auto;
+}
+
+.quick-cash-btn.clear:hover {
+  background: #fee2e2;
+}
+
 .split-presets-row .btn-chip:hover {
   background: #101c35;
   color: #ffffff;
@@ -4999,8 +5181,33 @@
 .stock-inline-actions button:disabled, .stock-row-edit-button:disabled { opacity: .45; cursor: not-allowed; }
 .stock-row-edit-button { padding: 5px 8px; }
 .stock-details-side-column { display: flex; flex-direction: column; gap: 12px; }
-.stock-detail-product-image { height: 150px; display: grid; place-items: center; margin: -2px 0 13px; background: #faf6ed; border: 1px solid #eee4d3; border-radius: 7px; color: #9d8357; overflow: hidden; }
-.stock-detail-product-image img { width: 100%; height: 100%; object-fit: contain; }
+.stock-detail-product-image {
+  height: 200px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: -2px 0 14px;
+  background: #ffffff;
+  border: 1px solid #e5dfd5;
+  border-radius: 10px;
+  color: #9d8357;
+  overflow: hidden;
+  padding: 10px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.02), 0 2px 6px rgba(0, 0, 0, 0.03);
+}
+.stock-detail-product-image img {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 6px;
+  transition: transform 0.25s ease;
+}
+.stock-detail-product-image:hover img {
+  transform: scale(1.03);
+}
 .stock-product-info-panel dl { margin: 10px 0 0; display: flex; flex-direction: column; gap: 9px; }
 .stock-product-info-panel dl div { display: flex; justify-content: space-between; gap: 10px; font-size: 10px; }
 .stock-product-info-panel dt { color: #897f70; }

@@ -69,7 +69,12 @@ export default function ProductDetailsModal({ product, onClose, onAddToBill }) {
 
   const handleSizeChange = (size) => {
     setSelectedSize(size);
-    setSelectedVariantId(null);
+    const sizeVariants = variants.filter(
+      (variant) => String(variant.size ?? "").trim() === size
+    );
+    // Auto-select first in-stock variant for this size so Add to Bill is immediately enabled
+    const inStock = sizeVariants.find((v) => (Number(v.stock) || 0) > 0) || sizeVariants[0];
+    setSelectedVariantId(inStock?.id ?? null);
     setQuantity(1);
   };
 
@@ -129,7 +134,7 @@ export default function ProductDetailsModal({ product, onClose, onAddToBill }) {
         <div className="product-modal-header">
           <div>
             <h3 id="product-details-modal-title">Product Details & Size Selection</h3>
-            <p>Select size first, then choose its colour and quantity</p>
+            <p>Select size to add directly, or customize colour and quantity</p>
           </div>
           <button type="button" className="btn-close" onClick={onClose} aria-label="Close">
             <X size={20} />
@@ -139,7 +144,18 @@ export default function ProductDetailsModal({ product, onClose, onAddToBill }) {
         <div className="product-modal-body">
           <div className="product-info-section">
             <div className="product-info-image">
-              <Package size={48} strokeWidth={1.5} />
+              {product.image ? (
+                <img
+                  src={product.image}
+                  alt={product.name}
+                  style={{ width: "100%", height: "100%", objectFit: "contain", borderRadius: "8px" }}
+                  onError={(e) => {
+                    e.currentTarget.style.display = "none";
+                  }}
+                />
+              ) : (
+                <Package size={48} strokeWidth={1.5} />
+              )}
             </div>
             <div className="product-info-details">
               <div className="product-info-header">

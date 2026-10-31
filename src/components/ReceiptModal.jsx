@@ -317,6 +317,20 @@ export default function ReceiptModal() {
                   </div>
                 </div>
               )}
+
+              {/* Cash Tender & Change Breakdown */}
+              {recentInvoice.payment_method === "Cash" && recentInvoice.cash_tendered && (
+                <div className="stat-split-card">
+                  <div className="stat-split-row">
+                    <span className="split-lbl">Cash Received:</span>
+                    <strong className="split-val">{formatINR(recentInvoice.cash_tendered)}</strong>
+                  </div>
+                  <div className="stat-split-row">
+                    <span className="split-lbl">Change Returned:</span>
+                    <strong className="split-val">{formatINR(recentInvoice.change_returned ?? Math.max(0, recentInvoice.cash_tendered - grandTotal))}</strong>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
