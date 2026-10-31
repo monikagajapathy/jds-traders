@@ -9,6 +9,7 @@ import {
   Trash2,
   X,
   Check,
+  Copy,
   RotateCcw,
   Tag,
   DollarSign,
@@ -24,9 +25,14 @@ import {
   Settings,
   Calendar,
   ChevronDown,
+  ArrowLeft,
+  Eye,
+  Save,
 } from "lucide-react";
 import { useStore } from "../context/StoreContext.jsx";
 import { formatINR } from "../utils/calculations.js";
+import Code128Barcode from "./Code128Barcode.jsx";
+import { generateUniqueVariantBarcode } from "../utils/barcode.js";
 
 export default function InventoryView() {
   const {
@@ -48,6 +54,51 @@ export default function InventoryView() {
   const [selectedCat, setSelectedCat] = useState("All");
   const [stockFilter, setStockFilter] = useState("All");
   const [isAuditOpen, setIsAuditOpen] = useState(false);
+  const [selectedProductId, setSelectedProductId] = useState(null);
+  const [editingStockVariantId, setEditingStockVariantId] = useState(null);
+  const [stockQuantityDraft, setStockQuantityDraft] = useState("");
+  const [barcodePreview, setBarcodePreview] = useState(null);
+  const [barcodeCopied, setBarcodeCopied] = useState(false);
+
+  const copyVariantBarcode = async () => {
+    const value = barcodePreview?.variant?.barcode;
+    if (!value) return;
+    try {
+      await navigator.clipboard.writeText(value);
+      setBarcodeCopied(true);
+      window.setTimeout(() => setBarcodeCopied(false), 1600);
+    } catch {
+      alert("Clipboard access was blocked by the browser. Please select and copy the barcode text.");
+    }
+  };
+
+  const printVariantBarcode = () => {
+    if (!barcodePreview?.variant?.barcode) return;
+    const svg = document.getElementById("variant-barcode-svg")?.outerHTML;
+    if (!svg) return;
+    const { product, variant } = barcodePreview;
+    const printWindow = window.open("", "_blank", "width=520,height=420");
+    if (!printWindow) {
+      alert("Please allow pop-ups to print the barcode label.");
+      return;
+    }
+    printWindow.document.write(`<!doctype html><html><head><title>Barcode Label</title><style>
+      @page { size: 70mm 45mm; margin: 4mm; }
+      * { box-sizing: border-box; } body { margin: 0; font-family: Arial, sans-serif; color: #111827; }
+      .label { width: 62mm; text-align: center; padding: 2mm; }
+      .name { font-size: 11pt; font-weight: 700; margin-bottom: 2mm; }
+      .meta { font-size: 8pt; margin-bottom: 2mm; }
+      svg { width: 100%; height: auto; }
+      .code { font-family: monospace; font-size: 9pt; margin-top: 1mm; letter-spacing: .5px; }
+      @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+    </style></head><body><div class="label">
+      <div class="name">${String(product.name || "").replace(/[&<>"]/g, "")}</div>
+      <div class="meta">${String(product.article_no || "").replace(/[&<>"]/g, "")} · Size ${String(variant.size || "").replace(/[&<>"]/g, "")} · ${String(variant.color || "Standard").replace(/[&<>"]/g, "")}</div>
+      ${svg}
+      <div class="code">${String(variant.barcode).replace(/[&<>"]/g, "")}</div>
+    </div><script>window.onload=()=>{window.print();window.close();};</script></body></html>`);
+    printWindow.document.close();
+  };
 
   // Low-Stock Threshold Configuration (Issue 5)
   // Clarification: 3 pairs applies per individual size (Retail mode), while 30 pairs applies to total article carton stock (Wholesale mode)
@@ -87,8 +138,108 @@ export default function InventoryView() {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingProd, setEditingProd] = useState(null);
+  const [pendingVariantFocusId, setPendingVariantFocusId] = useState(null);
   const [editingAdjustReason, setEditingAdjustReason] = useState("Restock Delivery");
   const [editingAdjustNote, setEditingAdjustNote] = useState("");
+
+  // After adding a size, scroll its row into view and focus the size field.
+  // requestAnimationFrame lets the browser finish laying out the newly rendered row.
+  useEffect(() => {
+    if (!pendingVariantFocusId || !editingProd) return;
+
+    const frameId = window.requestAnimationFrame(() => {
+      const row = document.getElementById(
+        `editing-variant-row-${pendingVariantFocusId}`
+      );
+      const sizeInput = document.getElementById(
+        `editing-variant-size-${pendingVariantFocusId}`
+      );
+
+      if (!row || !sizeInput) return;
+
+      row.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+      sizeInput.focus({ preventScroll: true });
+      sizeInput.select();
+      setPendingVariantFocusId(null);
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, [editingProd, pendingVariantFocusId]);
+
+  // Dedicated stock workflows: incoming stock and quantity correction are separate operations.
+  const [stockOperationMode, setStockOperationMode] = useState(null); // "add" | "edit"
+  const [stockOperationProduct, setStockOperationProduct] = useState(null);
+  const [stockOperationDrafts, setStockOperationDrafts] = useState({});
+  const [stockOperationReason, setStockOperationReason] = useState("Restock Delivery");
+  const [stockOperationNote, setStockOperationNote] = useState("");
+
+  const openStockOperation = (product, mode) => {
+    if (!product) return;
+    setStockOperationProduct(product);
+    setStockOperationMode(mode);
+    const variants = Array.isArray(product.variants) ? product.variants : [];
+    if (variants.length === 0) {
+      alert("This product has no size variants. Add a size before adjusting stock.");
+      return;
+    }
+    setStockOperationDrafts(
+      Object.fromEntries(variants.map((variant) => [
+        variant.id,
+        mode === "add" ? "0" : String(Number(variant.stock) || 0),
+      ]))
+    );
+    setStockOperationReason(mode === "add" ? "Restock Delivery" : "Physical Inventory Audit");
+    setStockOperationNote("");
+  };
+
+  const closeStockOperation = () => {
+    setStockOperationMode(null);
+    setStockOperationProduct(null);
+    setStockOperationDrafts({});
+    setStockOperationNote("");
+  };
+
+  const saveStockOperation = (event) => {
+    event.preventDefault();
+    if (!stockOperationProduct || !stockOperationMode) return;
+
+    const adjustments = stockOperationProduct.variants
+      .map((variant) => {
+        const rawValue = stockOperationDrafts[variant.id] ?? "0";
+        const entered = Number(rawValue);
+        if (!Number.isInteger(entered) || entered < 0) return null;
+        if (stockOperationMode === "add") {
+          return entered > 0
+            ? { variantId: variant.id, newStock: (Number(variant.stock) || 0) + entered }
+            : null;
+        }
+        return { variantId: variant.id, newStock: entered };
+      });
+
+    if (adjustments.some((item, index) => {
+      const rawValue = Number(stockOperationDrafts[stockOperationProduct.variants[index].id] ?? "0");
+      return !Number.isInteger(rawValue) || rawValue < 0;
+    })) {
+      alert("Enter a whole number of pairs (zero or more) for every size.");
+      return;
+    }
+
+    const validAdjustments = adjustments.filter(Boolean);
+    if (!validAdjustments.length) {
+      alert(stockOperationMode === "add"
+        ? "Enter at least one incoming quantity."
+        : "No size quantities were provided.");
+      return;
+    }
+
+    bulkAdjustStock(
+      stockOperationProduct.id,
+      validAdjustments,
+      stockOperationReason,
+      stockOperationNote
+    );
+    closeStockOperation();
+  };
 
   // Add new size state
   const [isAddSizeOpen, setIsAddSizeOpen] = useState(false);
@@ -106,10 +257,16 @@ export default function InventoryView() {
   const handleOpenAddSize = (prod) => {
     setSizeTargetProduct(prod);
     const firstVar = prod.variants[0];
-    const cleanArt = prod.article_no.replace(/[^A-Z0-9]/gi, "").slice(-3).padStart(3, "0");
-    const nextSize = String(prod.variants.length + 6);
-    const cleanSize = nextSize.padStart(2, "0");
-    const randomCode = Math.floor(1000 + Math.random() * 9000);
+    const usedBarcodes = new Set(products.flatMap((product) => (product.variants || []).map((variant) => variant.barcode).filter(Boolean)));
+    const usedNumericSizes = prod.variants
+      .map((variant) => String(variant.size).trim())
+      .filter((size) => /^\d+(\.\d+)?$/.test(size))
+      .map(Number);
+    let nextSizeNumber = 1;
+    while (usedNumericSizes.some((size) => size === nextSizeNumber)) {
+      nextSizeNumber += 1;
+    }
+    const nextSize = String(nextSizeNumber);
 
     setNewSizeForm({
       size: nextSize,
@@ -117,7 +274,7 @@ export default function InventoryView() {
       cost_price: firstVar?.cost_price || 600,
       selling_price: firstVar?.selling_price || 1199,
       stock: 6,
-      barcode: `890${cleanArt}${cleanSize}${randomCode}`,
+      barcode: generateUniqueVariantBarcode(usedBarcodes),
       reorder_level: 3,
     });
     setIsAddSizeOpen(true);
@@ -131,7 +288,7 @@ export default function InventoryView() {
       return;
     }
 
-    addVariantToProduct(sizeTargetProduct.id, {
+    const result = addVariantToProduct(sizeTargetProduct.id, {
       size: newSizeForm.size.trim(),
       color: newSizeForm.color || "Standard",
       cost_price: Number(newSizeForm.cost_price) || 0,
@@ -140,6 +297,11 @@ export default function InventoryView() {
       barcode: newSizeForm.barcode?.trim() || `890${Math.floor(100000000 + Math.random() * 900000000)}`,
       reorder_level: Number(newSizeForm.reorder_level) || 3,
     });
+
+    if (result?.success === false) {
+      alert(result.message || "Unable to add this size. Check whether it already exists.");
+      return;
+    }
 
     setIsAddSizeOpen(false);
     setSizeTargetProduct(null);
@@ -384,7 +546,7 @@ export default function InventoryView() {
   };
 
   // Open Combined Edit Product & Stock Adjustment Modal
-  const handleOpenEditProduct = (prod) => {
+  const handleOpenEditProduct = (prod, reason = "Restock Delivery") => {
     const rawColor =
       prod.color ||
       (Array.isArray(prod.colours) ? prod.colours.join(", ") : "") ||
@@ -403,7 +565,7 @@ export default function InventoryView() {
       hsn: prod.hsn || prod.hsn_code || "64041190",
       unit: prod.unit || "Pairs",
       location: prod.location || "Rack A-1",
-      variants: prod.variants.map((v) => ({
+      variants: (Array.isArray(prod.variants) ? prod.variants : []).map((v) => ({
         id: v.id,
         size: v.size,
         color: v.color || "Standard",
@@ -416,7 +578,7 @@ export default function InventoryView() {
         reorder_level: v.reorder_level || 3,
       })),
     });
-    setEditingAdjustReason("Restock Delivery");
+    setEditingAdjustReason(reason);
     setEditingAdjustNote("");
     setIsEditOpen(true);
   };
@@ -446,26 +608,48 @@ export default function InventoryView() {
 
   const handleAddVariantToEditing = () => {
     if (!editingProd) return;
-    const cleanArt = editingProd.article_no.replace(/[^A-Z0-9]/gi, "").slice(-3).padStart(3, "0");
-    const nextSizeNum = editingProd.variants.length + 6;
-    const nextSize = String(nextSizeNum);
-    const cleanSize = nextSize.padStart(2, "0");
-    const randomCode = Math.floor(1000 + Math.random() * 9000);
-    const newV = {
-      id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `var-${Date.now()}`,
+
+    // Pick the next unused numeric shoe size instead of relying on row count.
+    const usedNumericSizes = editingProd.variants
+      .map((variant) => String(variant.size).trim())
+      .filter((size) => /^\d+(\.\d+)?$/.test(size))
+      .map(Number);
+    let nextSizeNumber = 1;
+    while (usedNumericSizes.some((size) => size === nextSizeNumber)) {
+      nextSizeNumber += 1;
+    }
+
+    const nextSize = String(nextSizeNumber);
+    const usedBarcodes = new Set(
+      products.flatMap((product) =>
+        (product.variants || []).map((variant) => variant.barcode).filter(Boolean)
+      )
+    );
+    editingProd.variants.forEach((variant) => {
+      if (variant.barcode) usedBarcodes.add(variant.barcode);
+    });
+
+    const newVariantId =
+      typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `var-${Date.now()}`;
+
+    const newVariant = {
+      id: newVariantId,
       size: nextSize,
       color: editingProd.variants[0]?.color || "Standard",
       cost_price: editingProd.variants[0]?.cost_price || 600,
       selling_price: editingProd.variants[0]?.selling_price || 1199,
-      stock: 6,
-      barcode: `890${cleanArt}${cleanSize}${randomCode}`,
+      stock: 0,
+      barcode: generateUniqueVariantBarcode(usedBarcodes),
       sku: `JDS-${editingProd.article_no}-${nextSize}`,
       reorder_level: 3,
     };
-    setEditingProd({
-      ...editingProd,
-      variants: [...editingProd.variants, newV],
-    });
+
+    setEditingProd((current) =>
+      current ? { ...current, variants: [...current.variants, newVariant] } : current
+    );
+    setPendingVariantFocusId(newVariantId);
   };
 
   const handleRemoveVariantFromEditing = (index) => {
@@ -629,11 +813,12 @@ export default function InventoryView() {
     let lowStockCount = 0;
 
     products.forEach((p) => {
-      const prodTotalStock = p.variants.reduce((s, v) => s + (v.stock || 0), 0);
+      const variants = Array.isArray(p?.variants) ? p.variants : [];
+      const prodTotalStock = variants.reduce((s, v) => s + (Number(v.stock) || 0), 0);
       let isProductLow = false;
 
       if (thresholdMode === "per-size") {
-        isProductLow = p.variants.some((v) => (v.stock || 0) <= lowStockThreshold);
+        isProductLow = variants.some((v) => (Number(v.stock) || 0) <= lowStockThreshold);
       } else {
         isProductLow = prodTotalStock <= lowStockThreshold;
       }
@@ -642,7 +827,7 @@ export default function InventoryView() {
         lowStockCount++;
       }
 
-      p.variants.forEach((v) => {
+      variants.forEach((v) => {
         const qty = v.stock || 0;
         totalPairs += qty;
         totalCostVal += qty * (v.cost_price || 0);
@@ -656,6 +841,7 @@ export default function InventoryView() {
   // Filtered Products (Issue 1 & 5)
   const filteredProducts = useMemo(() => {
     return products.filter((prod) => {
+      const variants = Array.isArray(prod?.variants) ? prod.variants : [];
       // Category filter (flexible matching for Gents/Men, Ladies/Women, Boys/Kids, Girls)
       if (selectedCat !== "All") {
         const c = String(prod.category || "").toLowerCase();
@@ -670,11 +856,11 @@ export default function InventoryView() {
       }
 
       // Stock status filter (Issue 5: respects 3 vs 30 threshold and per-size vs total mode)
-      const totalStock = prod.variants.reduce((s, v) => s + (v.stock || 0), 0);
+      const totalStock = variants.reduce((s, v) => s + (Number(v.stock) || 0), 0);
       if (stockFilter === "Low") {
         const isLow =
           thresholdMode === "per-size"
-            ? prod.variants.some((v) => (v.stock || 0) <= lowStockThreshold)
+            ? variants.some((v) => (Number(v.stock) || 0) <= lowStockThreshold)
             : totalStock <= lowStockThreshold;
         if (!isLow) return false;
       }
@@ -685,10 +871,10 @@ export default function InventoryView() {
       if (!query.trim()) return true;
       const q = query.toLowerCase().trim();
       return (
-        prod.name.toLowerCase().includes(q) ||
-        prod.article_no.toLowerCase().includes(q) ||
-        prod.brand.toLowerCase().includes(q) ||
-        prod.variants.some(
+        String(prod.name || "").toLowerCase().includes(q) ||
+        String(prod.article_no || "").toLowerCase().includes(q) ||
+        String(prod.brand || "").toLowerCase().includes(q) ||
+        variants.some(
           (v) => v.barcode?.includes(q) || v.sku?.toLowerCase().includes(q)
         )
       );
@@ -727,8 +913,159 @@ export default function InventoryView() {
     setEditingProd({ ...editingProd, variants: updated });
   };
 
+  const selectedProduct = products.find((product) => product.id === selectedProductId) || null;
+
+  const beginSizeStockEdit = (variant) => {
+    setEditingStockVariantId(variant.id);
+    setStockQuantityDraft(String(Number(variant.stock) || 0));
+  };
+
+  const cancelSizeStockEdit = () => {
+    setEditingStockVariantId(null);
+    setStockQuantityDraft("");
+  };
+
+  const saveSizeStockEdit = (variant) => {
+    const nextQuantity = Number(stockQuantityDraft);
+    if (!Number.isInteger(nextQuantity) || nextQuantity < 0) {
+      alert("Enter a valid whole-number quantity (0 or greater).");
+      return;
+    }
+    const currentQuantity = Number(variant.stock) || 0;
+    if (nextQuantity !== currentQuantity) {
+      bulkAdjustStock(
+        selectedProduct.id,
+        [{ variantId: variant.id, newStock: nextQuantity }],
+        "Physical Inventory Audit",
+        `Size ${variant.size}, ${variant.color || "Standard"}: ${currentQuantity} → ${nextQuantity}`
+      );
+    }
+    cancelSizeStockEdit();
+  };
+
   return (
     <div className="inventory-container">
+      {selectedProduct ? (
+        <section className="stock-product-details-page">
+          <div className="stock-details-breadcrumb">
+            <button type="button" onClick={() => setSelectedProductId(null)}>
+              <ArrowLeft size={15} /> Back to Stock Control
+            </button>
+            <span>/</span><span>Product Details</span>
+          </div>
+
+          <div className="stock-details-heading">
+            <div>
+              <h2>{selectedProduct.name}</h2>
+              <p>{selectedProduct.brand} <span>·</span> {selectedProduct.category} <span>·</span> {selectedProduct.sub_category}</p>
+              <span className="stock-details-article">Article: {selectedProduct.article_no}</span>
+            </div>
+            <div className="stock-details-actions">
+              <button type="button" className="stock-secondary-action" onClick={() => handleOpenEditProduct(selectedProduct, "Product Details Edit")}>
+                <Edit2 size={14} /> Edit Product
+              </button>
+              <button type="button" className="stock-secondary-action" onClick={() => openStockOperation(selectedProduct, "add")}>
+                <PackagePlus size={14} /> Add Stock
+              </button>
+              <button type="button" className="stock-primary-action" onClick={() => openStockOperation(selectedProduct, "edit")}>
+                <SlidersHorizontal size={14} /> Edit Stock
+              </button>
+            </div>
+          </div>
+
+          <div className="stock-detail-metrics">
+            <div><span>Total Stock</span><strong>{selectedProduct.variants.reduce((sum, variant) => sum + (Number(variant.stock) || 0), 0)} <small>pairs</small></strong></div>
+            <div><span>Cost Price</span><strong>{formatINR(selectedProduct.variants[0]?.cost_price || 0)}</strong><small>per pair</small></div>
+            <div><span>Selling Price</span><strong>{formatINR(selectedProduct.variants[0]?.selling_price || 0)}</strong><small>per pair</small></div>
+            <div><span>Stock Value</span><strong>{formatINR(selectedProduct.variants.reduce((sum, variant) => sum + ((Number(variant.stock) || 0) * (Number(variant.cost_price) || 0)), 0))}</strong></div>
+          </div>
+
+          <div className="stock-details-content-grid">
+            <section className="panel stock-size-detail-panel">
+              <div className="stock-detail-section-heading">
+                <div><h3>Size-wise Inventory</h3><p>Manage quantities for each size and color independently.</p></div>
+                <span>{selectedProduct.variants.length} variants</span>
+              </div>
+              <div className="stock-detail-table-scroll">
+                <table className="custom-table stock-detail-table">
+                  <thead><tr><th>Size</th><th>Color</th><th>SKU / Barcode</th><th className="center-cell">Available Stock</th><th>Status</th><th className="center-cell">Actions</th></tr></thead>
+                  <tbody>
+                    {selectedProduct.variants.map((variant) => {
+                      const quantity = Number(variant.stock) || 0;
+                      const low = quantity > 0 && quantity <= (Number(variant.reorder_level) || lowStockThreshold);
+                      const out = quantity === 0;
+                      const isEditing = editingStockVariantId === variant.id;
+                      return (
+                        <tr key={variant.id}>
+                          <td><strong>{variant.size}</strong></td>
+                          <td>{variant.color || "Standard"}</td>
+                          <td>
+                            <div className="variant-barcode-cell">
+                              <code>{variant.barcode || "Barcode pending"}</code>
+                              <button type="button" className="variant-barcode-preview-button"
+                                onClick={() => { setBarcodeCopied(false); setBarcodePreview({ product: selectedProduct, variant }); }}
+                                disabled={!variant.barcode}>
+                                <Eye size={12} /> Preview
+                              </button>
+                            </div>
+                          </td>
+                          <td className="center-cell">
+                            {isEditing ? (
+                              <input className="stock-inline-quantity" type="number" min="0" step="1" value={stockQuantityDraft}
+                                onChange={(event) => setStockQuantityDraft(event.target.value)}
+                                aria-label={`New quantity for size ${variant.size}`} autoFocus />
+                            ) : <strong>{quantity} <small>pairs</small></strong>}
+                          </td>
+                          <td><span className={`stock-status-tag ${out ? "out" : low ? "low" : "healthy"}`}><i />{out ? "Out of Stock" : low ? "Low Stock" : "In Stock"}</span></td>
+                          <td className="center-cell">
+                            {isEditing ? (
+                              <div className="stock-inline-actions">
+                                <button type="button" className="save" onClick={() => saveSizeStockEdit(variant)}><Save size={13} /> Save</button>
+                                <button type="button" className="cancel" onClick={cancelSizeStockEdit}>Cancel</button>
+                              </div>
+                            ) : (
+                              <button type="button" className="stock-row-edit-button" onClick={() => beginSizeStockEdit(variant)}
+                                disabled={editingStockVariantId !== null}
+                                title={`Edit stock for size ${variant.size} (${variant.color || "Standard"})`}>
+                                <Edit2 size={13} /> Edit
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <aside className="stock-details-side-column">
+              <section className="panel stock-product-info-panel">
+                <div className="stock-detail-product-image">
+                  {selectedProduct.image ? <img src={selectedProduct.image} alt={selectedProduct.name} /> : <PackagePlus size={42} />}
+                </div>
+                <h3>Product Information</h3>
+                <dl>
+                  <div><dt>Product Name</dt><dd>{selectedProduct.name}</dd></div>
+                  <div><dt>Brand</dt><dd>{selectedProduct.brand || "—"}</dd></div>
+                  <div><dt>Category</dt><dd>{selectedProduct.category || "—"}</dd></div>
+                  <div><dt>Footwear Type</dt><dd>{selectedProduct.sub_category || "—"}</dd></div>
+                  <div><dt>Article / SKU</dt><dd>{selectedProduct.article_no}</dd></div>
+                  <div><dt>GST Rate</dt><dd>{selectedProduct.tax_rate ?? 0}%</dd></div>
+                  <div><dt>Location / Rack</dt><dd>{selectedProduct.location || "—"}</dd></div>
+                </dl>
+              </section>
+              <section className="panel stock-barcode-panel">
+                <h3>Variant Barcodes</h3>
+                <p className="stock-barcode-help">Each size and colour has its own barcode. Use Preview in the corresponding inventory row to copy or print its label.</p>
+                <div className="stock-barcode-count">{selectedProduct.variants.filter((variant) => variant.barcode).length} of {selectedProduct.variants.length} variants have barcodes</div>
+              </section>
+            </aside>
+          </div>
+        </section>
+      ) : (
+        <>
+
       {/* KPI TILES (Single-Line 4-Card Alignment) */}
       <div className="metrics-grid">
         <div className="metric-card">
@@ -926,183 +1263,75 @@ export default function InventoryView() {
         </div>
       </div>
 
-      {/* PRODUCTS & SIZES TABLE */}
-      <div className="panel table-panel">
-        <div className="table-responsive">
-          <table className="custom-table">
+      {/* STOCK CONTROL PRODUCT TABLE */}
+      <section className="panel stock-control-table-panel">
+        <div className="stock-control-table-scroll">
+          <table className="custom-table stock-control-table">
             <thead>
               <tr>
-                <th>Article & Model</th>
-                <th>Brand & Category</th>
-                <th>Sizes & Stock Breakdown</th>
-                <th style={{ textAlign: "right" }}>Cost Price</th>
-                <th style={{ textAlign: "right" }}>Selling Price</th>
-                <th style={{ textAlign: "center" }}>Total Stock</th>
-                <th style={{ textAlign: "center" }}>Actions</th>
+                <th>Product</th><th>SKU / Barcode</th><th>Brand & Category</th><th>Sizes & Stock</th>
+                <th className="numeric-cell">Cost Price</th><th className="numeric-cell">Selling Price</th>
+                <th className="center-cell">Total Stock</th><th>Status</th><th className="center-cell">Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredProducts.length === 0 ? (
-                <tr>
-                  <td colSpan="7" style={{ textAlign: "center", padding: "40px 20px" }}>
-                    <Boxes size={32} style={{ color: "#a0aec0", margin: "0 auto 10px" }} />
-                    <div style={{ fontWeight: 600, color: "#4a5568" }}>
-                      No footwear matching your search or filters
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                filteredProducts.map((prod) => {
-                  const totalStock = prod.variants.reduce(
-                    (s, v) => s + (v.stock || 0),
-                    0
-                  );
-                  const minPrice = Math.min(
-                    ...prod.variants.map((v) => v.selling_price || 0)
-                  );
-                  const maxPrice = Math.max(
-                    ...prod.variants.map((v) => v.selling_price || 0)
-                  );
-                  const costPrice = prod.variants[0]?.cost_price || 0;
-                  const marginPct =
-                    minPrice > 0
-                      ? Math.round(((minPrice - costPrice) / minPrice) * 100)
-                      : 0;
-
-                  const isProductLowStock =
-                    thresholdMode === "per-size"
-                      ? prod.variants.some((v) => (v.stock || 0) <= lowStockThreshold)
-                      : totalStock <= lowStockThreshold;
-
-                  const isHighlighted =
-                    highlightTarget?.tab === "inventory" &&
-                    (highlightTarget.productId === prod.id ||
-                      highlightTarget.productName === prod.name ||
-                      highlightTarget.productName === prod.article_no);
-
-                  return (
-                    <tr
-                      key={prod.id}
-                      id={`prod-row-${prod.id}`}
-                      className={`${isHighlighted ? "table-row-highlight" : ""} ${isProductLowStock ? "row-low-stock-alert" : ""}`}
-                    >
-                      <td>
-                        <div className="prod-cell">
-                          <span className="art-pill">{prod.article_no}</span>
-                          <div>
-                            <strong style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                              {prod.name}
-                              {isProductLowStock && (
-                                <span className="low-stock-badge-dot" title="Low stock alert on this article">
-                                  LOW
-                                </span>
-                              )}
-                            </strong>
-                            <div className="sub-text">
-                              GST: {prod.tax_rate || 12}% • Barcode: {prod.variants[0]?.barcode || "-"}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-
-                      <td>
-                        <div style={{ fontWeight: 600 }}>{prod.brand}</div>
-                        <span className="sub-tag">
-                          {prod.category} • {prod.sub_category}
-                        </span>
-                      </td>
-
-                      <td>
-                        <div className="size-stock-pills">
-                          {prod.variants.map((v) => {
-                            const isSizeLow = (v.stock || 0) <= (thresholdMode === "per-size" ? lowStockThreshold : 3);
-                            return (
-                              <button
-                                key={v.id}
-                                className={`size-inventory-pill ${isSizeLow ? "low" : ""}`}
-                                onClick={() => handleOpenEditProduct(prod)}
-                                title={`Size ${v.size} (${v.color || "Standard"}): ${v.stock} pairs ${isSizeLow ? "(LOW STOCK)" : ""} - Click to edit & adjust`}
-                              >
-                                <span className="s-size">{v.size}</span>
-                                <span className="s-qty">{v.stock}</span>
-                                {isSizeLow && <span className="s-dot-alert" />}
-                              </button>
-                            );
-                          })}
-                          <button
-                            type="button"
-                            className="btn-add-size-pill"
-                            onClick={() => handleOpenAddSize(prod)}
-                            title={`Add a new size variant to ${prod.name}`}
-                          >
-                            <Plus size={11} /> Size
-                          </button>
-                        </div>
-                      </td>
-
-                      <td style={{ textAlign: "right", color: "#64748b" }}>
-                        {formatINR(costPrice)}
-                      </td>
-
-                      <td style={{ textAlign: "right" }}>
-                        <div style={{ fontWeight: 700, color: "#1e293b" }}>
-                          {minPrice === maxPrice ? formatINR(minPrice) : `${formatINR(minPrice)} - ${formatINR(maxPrice)}`}
-                        </div>
-                        <span className="margin-hint">{marginPct}% margin</span>
-                      </td>
-
-                      <td style={{ textAlign: "center" }}>
-                        <span
-                          className={`stock-badge ${
-                            totalStock === 0
-                              ? "out"
-                              : totalStock <= lowStockThreshold
-                              ? "low"
-                              : "ok"
-                          }`}
-                        >
-                          {totalStock} pairs
-                        </span>
-                      </td>
-
-                      {/* Actions Column (Combined Edit & Adjust - Issue 4) */}
-                      <td style={{ textAlign: "center" }}>
-                        <div style={{ display: "flex", gap: "6px", justifyContent: "center", alignItems: "center" }}>
-                          <button
-                            type="button"
-                            className="btn-tiny btn-edit-action"
-                            style={{ color: "#0284c7", borderColor: "#bae6fd", background: "#f0f9ff", fontWeight: 700, padding: "4px 10px" }}
-                            onClick={() => handleOpenEditProduct(prod)}
-                            title="Edit product details, selling prices, and adjust size stock"
-                          >
-                            <Edit2 size={12} /> Edit
-                          </button>
-                          <button
-                            type="button"
-                            className="btn-tiny-danger"
-                            onClick={() => {
-                              if (
-                                confirm(
-                                  `Delete ${prod.name} (${prod.article_no}) from catalog?`
-                                )
-                              ) {
-                                deleteProduct(prod.id);
-                              }
-                            }}
-                            title="Delete Footwear"
-                          >
-                            <Trash2 size={12} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
+                <tr><td colSpan="9" className="stock-table-empty"><Boxes size={30} /><strong>No footwear found</strong><span>Try changing your search or filters.</span></td></tr>
+              ) : filteredProducts.map((prod) => {
+                const variants = Array.isArray(prod?.variants) ? prod.variants : [];
+                const totalStock = variants.reduce((sum, variant) => sum + (Number(variant.stock) || 0), 0);
+                const prices = variants.map((variant) => Number(variant.selling_price) || 0);
+                const minPrice = prices.length ? Math.min(...prices) : 0;
+                const maxPrice = prices.length ? Math.max(...prices) : 0;
+                const costPrice = Number(variants[0]?.cost_price) || 0;
+                const isOutOfStock = totalStock === 0;
+                const isLowStock = thresholdMode === "per-size"
+                  ? variants.some((variant) => (Number(variant.stock) || 0) <= lowStockThreshold)
+                  : totalStock <= lowStockThreshold;
+                const isHighlighted = highlightTarget?.tab === "inventory" &&
+                  (highlightTarget.productId === prod.id || highlightTarget.productName === prod.name || highlightTarget.productName === prod.article_no);
+                return (
+                  <tr key={prod.id} id={`prod-row-${prod.id}`}
+                    className={`${isHighlighted ? "table-row-highlight" : ""} ${isLowStock ? "row-low-stock-alert" : ""}`}>
+                    <td>
+                      <div className="stock-product-cell">
+                        <div className="stock-product-image">{prod.image ? <img src={prod.image} alt="" /> : <PackagePlus size={20} />}</div>
+                        <div className="stock-product-copy"><strong>{prod.name}</strong><span>{prod.category} · {prod.sub_category}</span></div>
+                      </div>
+                    </td>
+                    <td><div className="stock-code-cell"><strong>{prod.article_no}</strong><span>{variants[0]?.barcode || prod.barcode || "—"}</span></div></td>
+                    <td><div className="stock-brand-cell"><strong>{prod.brand || "—"}</strong><span>{prod.category || "Uncategorised"}</span></div></td>
+                    <td>
+                      <div className="stock-size-pills" aria-label={`Stock by size for ${prod.name}`}>
+                        {variants.slice(0, 5).map((variant) => {
+                          const qty = Number(variant.stock) || 0;
+                          const low = qty <= (thresholdMode === "per-size" ? lowStockThreshold : 3);
+                          return <span key={variant.id} className={`stock-size-pill ${qty === 0 ? "is-empty" : low ? "is-low" : ""}`} title={`Size ${variant.size}, ${variant.color || "Standard"}: ${qty} pairs`}><b>{variant.size}</b><span>{qty}</span></span>;
+                        })}
+                        {variants.length > 5 && <button type="button" className="stock-more-sizes" onClick={() => setSelectedProductId(prod.id)}>+{variants.length - 5} more</button>}
+                      </div>
+                    </td>
+                    <td className="numeric-cell">{formatINR(costPrice)}</td>
+                    <td className="numeric-cell"><strong>{minPrice === maxPrice ? formatINR(minPrice) : `${formatINR(minPrice)} – ${formatINR(maxPrice)}`}</strong></td>
+                    <td className="center-cell"><strong className="stock-total-value">{totalStock}</strong><span className="stock-unit-label">pairs</span></td>
+                    <td><span className={`stock-status-tag ${isOutOfStock ? "out" : isLowStock ? "low" : "healthy"}`}><i />{isOutOfStock ? "Out of Stock" : isLowStock ? "Low Stock" : "In Stock"}</span></td>
+                    <td className="center-cell">
+                      <div className="stock-row-actions">
+                        <button type="button" className="stock-view-button" onClick={() => { setSelectedProductId(prod.id); cancelSizeStockEdit(); }}><Eye size={13} /> View</button>
+                        <button type="button" className="stock-icon-action" onClick={() => handleOpenEditProduct(prod)} title="Edit product details" aria-label={`Edit ${prod.name}`}><Edit2 size={14} /></button>
+                        <button type="button" className="stock-icon-action danger" onClick={() => { if (confirm(`Delete ${prod.name} (${prod.article_no}) from catalog?`)) deleteProduct(prod.id); }} title="Delete product" aria-label={`Delete ${prod.name}`}><Trash2 size={14} /></button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
-      </div>
+        <div className="stock-table-footer"><span>Showing {filteredProducts.length} of {products.length} products</span></div>
+      </section>
+        </>
+      )}
 
       {/* MODAL: EDIT PRODUCT DETAILS & VARIANTS (Issue 9) */}
       {isEditOpen && editingProd && (
@@ -1327,9 +1556,10 @@ export default function InventoryView() {
                     </thead>
                     <tbody>
                       {editingProd.variants.map((v, idx) => (
-                        <tr key={v.id || idx}>
+                        <tr key={v.id || idx} id={v.id ? `editing-variant-row-${v.id}` : undefined}>
                           <td>
                             <input
+                              id={v.id ? `editing-variant-size-${v.id}` : undefined}
                               type="text"
                               className="table-input"
                               value={v.size}
@@ -1480,6 +1710,132 @@ export default function InventoryView() {
                 </button>
                 <button type="submit" className="btn-primary">
                   <Check size={16} /> Save Product & Stock Updates
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: DEDICATED ADD STOCK / EDIT STOCK WORKFLOW */}
+      {stockOperationMode && stockOperationProduct && (
+        <div className="modal-backdrop" onClick={closeStockOperation}>
+          <div
+            className="modal-content stock-operation-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="stock-operation-title"
+            onClick={(event) => event.stopPropagation()}
+            style={{ maxWidth: "760px", width: "95%" }}
+          >
+            <div className="modal-header">
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <div className="modal-icon">
+                  {stockOperationMode === "add" ? <PackagePlus size={18} /> : <SlidersHorizontal size={18} />}
+                </div>
+                <div>
+                  <h3 id="stock-operation-title">
+                    {stockOperationMode === "add" ? "Add Incoming Stock" : "Edit Existing Stock"}
+                  </h3>
+                  <p>
+                    {stockOperationProduct.name} · Article {stockOperationProduct.article_no}
+                  </p>
+                </div>
+              </div>
+              <button type="button" className="btn-close" onClick={closeStockOperation} aria-label="Close">
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={saveStockOperation} className="product-form">
+              <div className="stock-operation-intro">
+                {stockOperationMode === "add"
+                  ? "Enter the number of pairs received for each size. These quantities will be added to the current stock."
+                  : "Enter the corrected physical quantity for each size. Values replace the current stock quantities."}
+              </div>
+
+              <div className="table-responsive stock-operation-table-wrap">
+                <table className="custom-table">
+                  <thead>
+                    <tr>
+                      <th>Size</th>
+                      <th>Color</th>
+                      <th>Current Stock</th>
+                      <th>{stockOperationMode === "add" ? "Quantity Received" : "Corrected Quantity"}</th>
+                      <th>{stockOperationMode === "add" ? "After Addition" : "New Stock"}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stockOperationProduct.variants.map((variant) => {
+                      const currentQty = Number(variant.stock) || 0;
+                      const enteredQty = Number(stockOperationDrafts[variant.id] ?? 0);
+                      const projectedQty = stockOperationMode === "add"
+                        ? currentQty + (Number.isFinite(enteredQty) ? enteredQty : 0)
+                        : (Number.isFinite(enteredQty) ? enteredQty : 0);
+                      return (
+                        <tr key={variant.id}>
+                          <td><strong>{variant.size}</strong></td>
+                          <td>{variant.color || "Standard"}</td>
+                          <td>{currentQty} pairs</td>
+                          <td>
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              inputMode="numeric"
+                              aria-label={`${stockOperationMode === "add" ? "Quantity received" : "Corrected quantity"} for size ${variant.size}`}
+                              value={stockOperationDrafts[variant.id] ?? "0"}
+                              onChange={(event) => setStockOperationDrafts((current) => ({
+                                ...current,
+                                [variant.id]: event.target.value,
+                              }))}
+                              style={{ width: "110px", minHeight: "34px" }}
+                            />
+                          </td>
+                          <td><strong>{projectedQty} pairs</strong></td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="form-grid-2 stock-operation-meta">
+                <div className="form-field">
+                  <label>Adjustment Reason</label>
+                  <select value={stockOperationReason} onChange={(event) => setStockOperationReason(event.target.value)}>
+                    {stockOperationMode === "add" ? (
+                      <>
+                        <option>Restock Delivery</option>
+                        <option>Supplier Return Reversal</option>
+                        <option>Opening Stock</option>
+                        <option>Other Stock In</option>
+                      </>
+                    ) : (
+                      <>
+                        <option>Physical Inventory Audit</option>
+                        <option>Stock Correction</option>
+                        <option>Damage / Write-off</option>
+                        <option>Other Adjustment</option>
+                      </>
+                    )}
+                  </select>
+                </div>
+                <div className="form-field">
+                  <label>Note / Reference (optional)</label>
+                  <input
+                    value={stockOperationNote}
+                    onChange={(event) => setStockOperationNote(event.target.value)}
+                    placeholder="Supplier invoice, audit note or reason..."
+                  />
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button type="button" className="btn-secondary" onClick={closeStockOperation}>Cancel</button>
+                <button type="submit" className="btn-primary">
+                  <Check size={16} />
+                  {stockOperationMode === "add" ? "Save Incoming Stock" : "Save Stock Correction"}
                 </button>
               </div>
             </form>
@@ -1685,6 +2041,7 @@ export default function InventoryView() {
               {/* TAB 1: STOCK (Enhanced Color-Size Matrix) */}
               {addItemTab === "stock" && (
                 <div className="tab-content-panel">
+                  <div className="tab-content-scrollable">
                   {/* Row 1: Opening Quantity (Auto-calculated), At Price, As Of Date */}
                   <div className="stock-grid-row-1">
                     <div className="clean-input-group">
@@ -1774,17 +2131,32 @@ export default function InventoryView() {
                   {/* Size Breakdown & Quantities */}
                   <div style={{ marginTop: "16px" }}>
                     <div style={{ marginBottom: "12px" }}>
-                      <h4 style={{ fontSize: "12px", fontWeight: 700, color: "#0f172a", marginBottom: "4px" }}>
-                        Size Breakdown & Quantities
-                      </h4>
-                      <p style={{ fontSize: "10px", color: "#64748b", marginBottom: "8px" }}>
-                        Enter opening stock quantity. Up to 30 sizes can be added automatically.
-                      </p>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "8px" }}>
+                        <div>
+                          <h4 style={{ fontSize: "12px", fontWeight: 700, color: "#0f172a", marginBottom: "4px" }}>
+                            Size Breakdown & Quantities
+                          </h4>
+                          <p style={{ fontSize: "10px", color: "#64748b", marginBottom: "0" }}>
+                            Enter opening stock quantity. Up to 30 sizes can be added automatically.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          className="btn-tiny"
+                          style={{ background: "#eff6ff", color: "#1e40af", borderColor: "#bfdbfe", flexShrink: 0 }}
+                          onClick={() => {
+                            const size = prompt("Enter new size:", "");
+                            if (size) handleAddSize(size);
+                          }}
+                        >
+                          <Plus size={11} /> Add Size
+                        </button>
+                      </div>
                       
                       {/* Color Chips */}
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px", marginTop: "12px" }}>
                         <label style={{ fontSize: "11px", fontWeight: 600, color: "#64748b" }}>
-                          Available Colors (3)
+                          Available Colors ({newProd.availableColors.length})
                         </label>
                         <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                           {newProd.availableColors.map((color) => (
@@ -1820,8 +2192,8 @@ export default function InventoryView() {
                       </div>
                     </div>
 
-                    {/* Stock Table */}
-                    <div style={{ overflowX: "auto", maxWidth: "100%", border: "1px solid #e2e8f0", borderRadius: "8px" }}>
+                    {/* Stock Table - Scrollable */}
+                    <div className="table-scroll-wrapper">
                       <table className="stock-matrix-table">
                         <thead>
                           <tr>
@@ -1888,30 +2260,39 @@ export default function InventoryView() {
                       </table>
                     </div>
 
-                    <div style={{ marginTop: "12px", display: "flex", gap: "8px", justifyContent: "space-between", alignItems: "center" }}>
-                      <button
-                        type="button"
-                        className="btn-tiny"
-                        style={{ background: "#eff6ff", color: "#1e40af", borderColor: "#bfdbfe" }}
-                        onClick={() => {
-                          const size = prompt("Enter new size:", "");
-                          if (size) handleAddSize(size);
-                        }}
-                      >
-                        <Plus size={11} /> Add Size
-                      </button>
+                    <div style={{ marginTop: "12px" }}>
                       <span style={{ fontSize: "10px", color: "#3b82f6", display: "flex", alignItems: "center", gap: "4px" }}>
                         <AlertTriangle size={11} />
-                        Each cell represents quantity per dark specific color and size
+                        Each cell represents quantity per specific color and size
                       </span>
                     </div>
+                  </div>
+                  </div>
+
+                  {/* Save Buttons for Stock Tab */}
+                  <div className="tab-footer-buttons">
+                    <button
+                      type="button"
+                      className="btn-save-new"
+                      onClick={() => handleSaveProduct(true)}
+                    >
+                      Save & New
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-save-item"
+                      onClick={() => handleSaveProduct(false)}
+                    >
+                      Save
+                    </button>
                   </div>
                 </div>
               )}
 
-              {/* TAB 2: PRICING (Enhanced with Overrides) */}
+              {/* TAB 2: PRICING */}
               {addItemTab === "pricing" && (
                 <div className="tab-content-panel">
+                  <div className="tab-content-scrollable">
                   {/* Base Pricing Section */}
                   <div style={{ marginBottom: "16px" }}>
                     <h4 style={{ fontSize: "12px", fontWeight: 700, color: "#0f172a", marginBottom: "10px" }}>
@@ -1998,61 +2379,6 @@ export default function InventoryView() {
                     </div>
                   </div>
 
-                  {/* Product Details */}
-                  <div style={{ marginBottom: "16px" }}>
-                    <div className="form-grid-3">
-                      <div className="clean-input-group">
-                        <label>Footwear Type</label>
-                        <div className="select-with-add-wrapper">
-                          <select
-                            value={newProd.sub_category}
-                            onChange={(e) => {
-                              if (e.target.value === "__add_new__") {
-                                setDynamicAddModal({ type: "type", target: "new", value: "" });
-                              } else {
-                                setNewProd({ ...newProd, sub_category: e.target.value });
-                              }
-                            }}
-                          >
-                            {footwearTypesList.map((ft) => (
-                              <option key={ft} value={ft}>{ft}</option>
-                            ))}
-                            <option value="__add_new__" style={{ fontWeight: 700, color: "#2563eb" }}>+ Add New Footwear Type...</option>
-                          </select>
-                          <button
-                            type="button"
-                            className="btn-quick-add-opt"
-                            onClick={() => setDynamicAddModal({ type: "type", target: "new", value: "" })}
-                            title="Add New Footwear Type"
-                          >
-                            + Add
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="clean-input-group">
-                        <label>Brand</label>
-                        <div className="select-with-add-wrapper">
-                          <input
-                            type="text"
-                            className="clean-input"
-                            placeholder="e.g. Sparx, Bata, Campus"
-                            value={newProd.brand}
-                            onChange={(e) => setNewProd({ ...newProd, brand: e.target.value })}
-                            list="brands-list"
-                          />
-                          <datalist id="brands-list">
-                            <option value="Sparx" />
-                            <option value="Bata" />
-                            <option value="Campus" />
-                            <option value="Red Tape" />
-                            <option value="Woodland" />
-                          </datalist>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
                   {/* Calculated Profit Margin */}
                   <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "6px", padding: "12px 16px", marginBottom: "16px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
@@ -2093,7 +2419,7 @@ export default function InventoryView() {
                           Variant Price Overrides (Optional)
                         </h4>
                         <p style={{ fontSize: "10px", color: "#a16207", margin: "4px 0 0" }}>
-                          Base pricing applies to all colors and sizes. Add an override only when a specific variant has a different price.
+                          Set custom prices for specific color-size combinations
                         </p>
                       </div>
                       <button
@@ -2107,8 +2433,8 @@ export default function InventoryView() {
                     </div>
 
                     {newProd.priceOverrides.length > 0 ? (
-                      <div style={{ marginTop: "10px" }}>
-                        <table style={{ width: "100%", fontSize: "11px", borderCollapse: "collapse" }}>
+                      <div className="table-scroll-wrapper" style={{ marginTop: "10px" }}>
+                        <table style={{ width: "100%", fontSize: "11px", borderCollapse: "collapse", background: "#fff" }}>
                           <thead>
                             <tr style={{ background: "#fef3c7", borderBottom: "1px solid #fde68a" }}>
                               <th style={{ padding: "6px 8px", textAlign: "left", fontWeight: 700 }}>Color</th>
@@ -2145,12 +2471,32 @@ export default function InventoryView() {
                       </p>
                     )}
                   </div>
+                  </div>
+
+                  {/* Save Buttons for Pricing Tab */}
+                  <div className="tab-footer-buttons">
+                    <button
+                      type="button"
+                      className="btn-save-new"
+                      onClick={() => handleSaveProduct(true)}
+                    >
+                      Save & New
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-save-item"
+                      onClick={() => handleSaveProduct(false)}
+                    >
+                      Save
+                    </button>
+                  </div>
                 </div>
               )}
 
               {/* TAB 3: ONLINE STORE */}
               {addItemTab === "online" && (
                 <div className="tab-content-panel">
+                  <div className="tab-content-scrollable">
                   <div className="clean-input-group" style={{ marginBottom: "14px" }}>
                     <label>Master Barcode / EAN</label>
                     <div className="input-with-button">
@@ -2185,26 +2531,27 @@ export default function InventoryView() {
                       onChange={(e) => setNewProd({ ...newProd, description: e.target.value })}
                     />
                   </div>
+                  </div>
+
+                  {/* Save Buttons for Online Store Tab */}
+                  <div className="tab-footer-buttons">
+                    <button
+                      type="button"
+                      className="btn-save-new"
+                      onClick={() => handleSaveProduct(true)}
+                    >
+                      Save & New
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-save-item"
+                      onClick={() => handleSaveProduct(false)}
+                    >
+                      Save
+                    </button>
+                  </div>
                 </div>
               )}
-            </div>
-
-            {/* Footer Buttons: Save & New (left) and Save (right) */}
-            <div className="add-item-modal-footer">
-              <button
-                type="button"
-                className="btn-save-new"
-                onClick={() => handleSaveProduct(true)}
-              >
-                Save & New
-              </button>
-              <button
-                type="button"
-                className="btn-save-item"
-                onClick={() => handleSaveProduct(false)}
-              >
-                Save
-              </button>
             </div>
           </div>
         </div>
@@ -2513,6 +2860,36 @@ export default function InventoryView() {
               </div>
             </form>
           </div>
+        </div>
+      )}
+      {barcodePreview && (
+        <div className="modal-backdrop barcode-preview-backdrop" onMouseDown={(event) => {
+          if (event.target === event.currentTarget) setBarcodePreview(null);
+        }}>
+          <section className="modal-content barcode-preview-modal" role="dialog" aria-modal="true" aria-labelledby="barcode-preview-title">
+            <div className="modal-header">
+              <div>
+                <h3 id="barcode-preview-title">Variant Barcode</h3>
+                <p>{barcodePreview.product.name} · Article {barcodePreview.product.article_no}</p>
+              </div>
+              <button type="button" className="btn-close" onClick={() => setBarcodePreview(null)} aria-label="Close barcode preview"><X size={17} /></button>
+            </div>
+            <div className="barcode-preview-meta">
+              <span><small>SIZE</small><strong>{barcodePreview.variant.size}</strong></span>
+              <span><small>COLOR</small><strong>{barcodePreview.variant.color || "Standard"}</strong></span>
+              <span><small>SKU</small><strong>{barcodePreview.variant.sku || "—"}</strong></span>
+            </div>
+            <div className="barcode-preview-paper">
+              <Code128Barcode value={barcodePreview.variant.barcode} height={82} />
+              <code>{barcodePreview.variant.barcode}</code>
+              <small>Code 128 · Generated by JDS Traders</small>
+            </div>
+            <div className="barcode-preview-note">This barcode identifies only this size and colour variant. Keep it unchanged after printing labels.</div>
+            <div className="modal-footer barcode-preview-actions">
+              <button type="button" className="btn-secondary" onClick={copyVariantBarcode}><Copy size={14} /> {barcodeCopied ? "Copied" : "Copy barcode"}</button>
+              <button type="button" className="btn-primary" onClick={printVariantBarcode}><Barcode size={14} /> Print label</button>
+            </div>
+          </section>
         </div>
       )}
     </div>

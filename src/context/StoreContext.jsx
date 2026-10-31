@@ -6,6 +6,7 @@ import {
   initialNotifications,
 } from "../data/initialData.js";
 import { supabase } from "../services/supabase.js";
+import { generateUniqueVariantBarcode } from "../utils/barcode.js";
 
 const StoreContext = createContext();
 
@@ -187,7 +188,43 @@ export function StoreProvider({ children }) {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0 && parsed.some((p) => p.article_no === "SX-701")) {
-          return parsed;
+          // Older/local cached records may contain variants as a keyed object
+          // instead of an array. Billing and inventory views rely on array
+          // methods (map, reduce, find, some), so normalize at the data boundary.
+          const usedBarcodes = new Set();
+          return parsed.map((product) => {
+            let variants = product?.variants;
+            if (typeof variants === "string") {
+              try {
+                variants = JSON.parse(variants);
+              } catch {
+                variants = [];
+              }
+            }
+            if (!Array.isArray(variants)) {
+              variants =
+                variants && typeof variants === "object"
+                  ? Object.values(variants)
+                  : [];
+            }
+            const normalizedVariants = variants
+              .filter((variant) => variant && typeof variant === "object")
+              .map((variant) => {
+                const existingBarcode = String(variant.barcode || "").trim();
+                const canKeepExisting = existingBarcode
+                  && /^[\x20-\x7E]+$/.test(existingBarcode)
+                  && !usedBarcodes.has(existingBarcode);
+                const barcode = canKeepExisting
+                  ? existingBarcode
+                  : generateUniqueVariantBarcode(usedBarcodes);
+                usedBarcodes.add(barcode);
+                return { ...variant, barcode };
+              });
+            return {
+              ...product,
+              variants: normalizedVariants,
+            };
+          });
         }
       }
       return initialProducts;
@@ -1112,7 +1149,7 @@ export function StoreProvider({ children }) {
   const addProduct = (newProduct) => {
     // Generate valid RFC UUID for Supabase
     const prodId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `00000000-0000-4000-8000-${Date.now().toString().slice(-12).padStart(12, "0")}`;
-    const cleanArt = newProduct.article_no.replace(/[^A-Z0-9]/gi, "").slice(-3).padStart(3, "0");
+    const usedBarcodes = new Set(products.flatMap((product) => (product.variants || []).map((variant) => String(variant.barcode || "").trim()).filter(Boolean)));
 
     const formatted = {
       ...newProduct,
@@ -1126,9 +1163,11 @@ export function StoreProvider({ children }) {
       is_active: true,
       variants: newProduct.variants.map((v, i) => {
         const vId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `00000000-0000-4000-8000-${(Date.now() + i + 1).toString().slice(-12).padStart(12, "0")}`;
-        const cleanSize = String(v.size).padStart(2, "0");
-        const randomCode = Math.floor(1000 + Math.random() * 9000);
-        const barcodeVal = v.barcode ? v.barcode.trim() : `890${cleanArt}${cleanSize}${randomCode}`;
+        const requestedBarcode = String(v.barcode || "").trim();
+        const barcodeVal = requestedBarcode && !usedBarcodes.has(requestedBarcode)
+          ? requestedBarcode
+          : generateUniqueVariantBarcode(usedBarcodes);
+        usedBarcodes.add(barcodeVal);
 
         return {
           id: vId,
@@ -1413,7 +1452,12 @@ export function StoreProvider({ children }) {
     }
 
     const varId = `var-${prod.id.replace("prod-", "")}-${sizeStr.replace(/[^a-zA-Z0-9]/g, "")}-${Date.now().toString().slice(-4)}`;
-    const barcode = variantData.barcode?.trim() || `890${Math.floor(100000000 + Math.random() * 900000000)}`;
+    const usedBarcodes = new Set(products.flatMap((product) => (product.variants || []).map((variant) => String(variant.barcode || "").trim()).filter(Boolean)));
+    const requestedBarcode = String(variantData.barcode || "").trim();
+    const barcode = requestedBarcode && !usedBarcodes.has(requestedBarcode)
+      ? requestedBarcode
+      : generateUniqueVariantBarcode(usedBarcodes);
+    usedBarcodes.add(barcode);
     const sku = variantData.sku?.trim() || `JDS-${prod.article_no}-${sizeStr}`;
     const costPrice = Number(variantData.cost_price) || prod.variants[0]?.cost_price || 500;
     const sellingPrice = Number(variantData.selling_price) || prod.variants[0]?.selling_price || 999;

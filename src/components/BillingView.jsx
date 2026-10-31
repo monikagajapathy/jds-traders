@@ -37,6 +37,22 @@ const categories = [
   { id: "Sandals", label: "Sandals" },
 ];
 
+// Product colour data may come from older records as a comma-separated string
+// or newer records as an array. Normalize both formats before filtering.
+const normalizeColors = (value) => {
+  const values = Array.isArray(value)
+    ? value
+    : typeof value === "string"
+      ? value.split(",")
+      : [];
+
+  return values
+    .filter((color) => typeof color === "string")
+    .flatMap((color) => color.split(","))
+    .map((color) => color.trim())
+    .filter(Boolean);
+};
+
 export default function BillingView() {
   const {
     products,
@@ -78,6 +94,22 @@ export default function BillingView() {
   const [scanToast, setScanToast] = useState(null);
   const [isBarcodeModalOpen, setIsBarcodeModalOpen] = useState(false);
   const barcodeInputRef = useRef(null);
+  const scanTimerRef = useRef(null);
+  const scanToastTimerRef = useRef(null);
+
+  // Focus the barcode field when the Billing page first opens.
+  // The scanner listener below also supports scans when focus moves to
+  // non-text areas of the page.
+  useEffect(() => {
+    barcodeInputRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (scanTimerRef.current) clearTimeout(scanTimerRef.current);
+      if (scanToastTimerRef.current) clearTimeout(scanToastTimerRef.current);
+    };
+  }, []);
 
   // Synthesize audible beep on successful scan
   const playBeep = () => {
@@ -158,13 +190,10 @@ export default function BillingView() {
   const availableColors = useMemo(() => {
     const set = new Set();
     products.forEach((p) => {
-      if (p.colours) {
-        p.colours.split(",").forEach((c) => set.add(c.trim()));
-      }
+      normalizeColors(p.colours).forEach((color) => set.add(color));
+
       p.variants?.forEach((v) => {
-        if (v.color) {
-          v.color.split(",").forEach((c) => set.add(c.trim()));
-        }
+        normalizeColors(v.color).forEach((color) => set.add(color));
       });
     });
     return ["All", ...Array.from(set).sort()];
@@ -205,9 +234,14 @@ export default function BillingView() {
       if (selectedColor !== "All") {
         const targetC = selectedColor.toLowerCase();
         const hasColor =
-          prod.colours?.toLowerCase().includes(targetC) ||
+          normalizeColors(prod.colours).some((color) =>
+            color.toLowerCase().includes(targetC)
+          ) ||
           prod.variants?.some(
-            (v) => v.color?.toLowerCase().includes(targetC) && (v.stock || 0) > 0
+            (v) =>
+              normalizeColors(v.color).some((color) =>
+                color.toLowerCase().includes(targetC)
+              ) && (v.stock || 0) > 0
           );
         if (!hasColor) return false;
       }
@@ -226,7 +260,9 @@ export default function BillingView() {
           v.barcode?.toLowerCase().includes(q) ||
           v.sku?.toLowerCase().includes(q) ||
           String(v.size).toLowerCase() === q ||
-          v.color?.toLowerCase().includes(q)
+          normalizeColors(v.color).some((color) =>
+            color.toLowerCase().includes(q)
+          )
       );
 
       return matchName || matchArt || matchBrand || matchCat || matchBarcode || matchVariant;
@@ -235,6 +271,10 @@ export default function BillingView() {
 
   // Barcode scanning processing
   const handleBarcodeProcess = (scannedCode) => {
+    if (scanTimerRef.current) {
+      clearTimeout(scanTimerRef.current);
+      scanTimerRef.current = null;
+    }
     const raw = scannedCode.trim();
     if (!raw) return;
 
@@ -285,12 +325,22 @@ export default function BillingView() {
 
       setScanToast({
         name: matchedProduct.name,
+        sku: matchedVariant.sku || matchedProduct.article_no || "",
         size: matchedVariant.size,
+        color: matchedVariant.color,
         price: matchedVariant.selling_price,
         barcode: matchedVariant.barcode,
+        image: matchedProduct.image || `/assets/products/${matchedProduct.article_no?.toLowerCase()}.jpg`,
+        stock: matchedVariant.stock,
+        quantity: 1,
+        isScan: true,
       });
 
-      setTimeout(() => setScanToast(null), 3000);
+      if (scanToastTimerRef.current) clearTimeout(scanToastTimerRef.current);
+      scanToastTimerRef.current = setTimeout(() => {
+        setScanToast(null);
+        scanToastTimerRef.current = null;
+      }, 2200);
       setBarcodeInput("");
     } else {
       alert(`Barcode not found in inventory: ${raw}`);
@@ -298,48 +348,90 @@ export default function BillingView() {
     }
   };
 
-  const handleBarcodeKeyDown = (e) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      handleBarcodeProcess(barcodeInput);
+  const handleBarcodeInputChange = (e) => {
+    const value = e.target.value;
+    setBarcodeInput(value);
+
+    // Most keyboard-wedge scanners send characters rapidly and may not send
+    // Enter. Treat a short pause after the final character as scan completion.
+    if (scanTimerRef.current) clearTimeout(scanTimerRef.current);
+    if (value.trim().length >= 6) {
+      scanTimerRef.current = setTimeout(() => {
+        handleBarcodeProcess(value);
+      }, 100);
     }
   };
 
-  // Keyboard shortcut listener for physical USB Barcode Scanners
+  const handleBarcodeKeyDown = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (barcodeInput.trim()) handleBarcodeProcess(barcodeInput);
+    }
+  };
+
+  // Support scanners even when the cashier has clicked a non-text area.
+  // Ordinary typing in customer/payment/search inputs is deliberately ignored.
   useEffect(() => {
     let keyBuffer = "";
-    let lastKeyTime = Date.now();
+    let scanTimer = null;
+    let lastKeyTime = 0;
 
     const handleWindowKeyDown = (e) => {
-      if (
-        document.activeElement &&
-        (document.activeElement.tagName === "INPUT" ||
-          document.activeElement.tagName === "SELECT" ||
-          document.activeElement.tagName === "TEXTAREA")
-      ) {
+      if (selectedProduct || isBarcodeModalOpen) {
+        keyBuffer = "";
+        if (scanTimer) clearTimeout(scanTimer);
+        return;
+      }
+
+      const active = document.activeElement;
+      const isBarcodeField = active === barcodeInputRef.current;
+      const isOtherEditable =
+        active &&
+        (active.tagName === "INPUT" ||
+          active.tagName === "SELECT" ||
+          active.tagName === "TEXTAREA" ||
+          active.isContentEditable);
+
+      // The barcode input has its own debounce handler. Never intercept
+      // keystrokes intended for another editable control.
+      if (isBarcodeField || isOtherEditable) {
+        keyBuffer = "";
+        if (scanTimer) clearTimeout(scanTimer);
         return;
       }
 
       const now = Date.now();
-      if (now - lastKeyTime > 120) {
-        keyBuffer = "";
-      }
+      if (now - lastKeyTime > 120) keyBuffer = "";
       lastKeyTime = now;
 
       if (e.key === "Enter") {
         if (keyBuffer.length >= 6) {
           handleBarcodeProcess(keyBuffer);
           keyBuffer = "";
+          if (scanTimer) clearTimeout(scanTimer);
           e.preventDefault();
         }
-      } else if (e.key.length === 1) {
+        return;
+      }
+
+      if (e.key.length === 1) {
         keyBuffer += e.key;
+        if (scanTimer) clearTimeout(scanTimer);
+        if (keyBuffer.length >= 6) {
+          scanTimer = setTimeout(() => {
+            handleBarcodeProcess(keyBuffer);
+            keyBuffer = "";
+          }, 100);
+        }
       }
     };
 
     window.addEventListener("keydown", handleWindowKeyDown);
-    return () => window.removeEventListener("keydown", handleWindowKeyDown);
-  }, [products]);
+    return () => {
+      window.removeEventListener("keydown", handleWindowKeyDown);
+      if (scanTimer) clearTimeout(scanTimer);
+    };
+  }, [products, selectedProduct, isBarcodeModalOpen]);
 
   // Product-wise GST and Cart Calculations
   const subtotal = cart.reduce(
@@ -463,8 +555,149 @@ export default function BillingView() {
 
   return (
     <section className="billing-layout">
-      {/* SCAN SUCCESS FLOATING BANNER */}
-      {scanToast && (
+      {/* SCANNED PRODUCT CONFIRMATION */}
+      {scanToast?.isScan && (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 1200,
+            display: "grid",
+            placeItems: "center",
+            padding: "20px",
+            background: "rgba(15, 23, 42, 0.42)",
+            pointerEvents: "none",
+          }}
+        >
+          <div
+            style={{
+              width: "min(560px, 100%)",
+              background: "#ffffff",
+              color: "#0f172a",
+              borderRadius: "16px",
+              boxShadow: "0 24px 70px rgba(15, 23, 42, 0.28)",
+              overflow: "hidden",
+              pointerEvents: "none",
+              border: "1px solid rgba(148, 163, 184, 0.28)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                padding: "16px 20px",
+                borderBottom: "1px solid #e2e8f0",
+                color: "#166534",
+                fontWeight: 700,
+                fontSize: "16px",
+              }}
+            >
+              <CheckCircle2 size={22} />
+              Product Added to Bill
+              <span style={{ marginLeft: "auto", color: "#64748b", fontSize: "12px", fontWeight: 500 }}>
+                Closing automatically
+              </span>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "minmax(150px, 210px) 1fr",
+                gap: "20px",
+                padding: "20px",
+                alignItems: "center",
+              }}
+            >
+              <div
+                style={{
+                  height: "180px",
+                  borderRadius: "12px",
+                  background: "#f8fafc",
+                  border: "1px solid #e2e8f0",
+                  display: "grid",
+                  placeItems: "center",
+                  overflow: "hidden",
+                }}
+              >
+                <img
+                  src={scanToast.image}
+                  alt={scanToast.name}
+                  style={{ width: "100%", height: "100%", objectFit: "contain", padding: "10px" }}
+                  onError={(e) => {
+                    e.currentTarget.style.display = "none";
+                  }}
+                />
+              </div>
+
+              <div style={{ display: "grid", gap: "10px", minWidth: 0 }}>
+                <div>
+                  <div style={{ fontSize: "20px", fontWeight: 750, lineHeight: 1.25 }}>
+                    {scanToast.name}
+                  </div>
+                  {scanToast.sku && (
+                    <div style={{ color: "#64748b", fontSize: "13px", marginTop: "4px" }}>
+                      SKU: {scanToast.sku}
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px 16px", fontSize: "14px" }}>
+                  <div>
+                    <div style={{ color: "#64748b", fontSize: "12px" }}>Size</div>
+                    <strong>{scanToast.size || "—"}</strong>
+                  </div>
+                  <div>
+                    <div style={{ color: "#64748b", fontSize: "12px" }}>Colour</div>
+                    <strong>{scanToast.color || "—"}</strong>
+                  </div>
+                  <div>
+                    <div style={{ color: "#64748b", fontSize: "12px" }}>Unit price</div>
+                    <strong>{formatINR(Number(scanToast.price) || 0)}</strong>
+                  </div>
+                  <div>
+                    <div style={{ color: "#64748b", fontSize: "12px" }}>Quantity added</div>
+                    <strong>+{scanToast.quantity || 1}</strong>
+                  </div>
+                  <div>
+                    <div style={{ color: "#64748b", fontSize: "12px" }}>Available stock</div>
+                    <strong>{scanToast.stock ?? "—"}</strong>
+                  </div>
+                  {scanToast.barcode && (
+                    <div>
+                      <div style={{ color: "#64748b", fontSize: "12px" }}>Barcode</div>
+                      <strong style={{ overflowWrap: "anywhere" }}>{scanToast.barcode}</strong>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div
+              style={{
+                margin: "0 20px 20px",
+                padding: "11px 14px",
+                borderRadius: "10px",
+                background: "#ecfdf5",
+                color: "#166534",
+                display: "flex",
+                alignItems: "center",
+                gap: "9px",
+                fontSize: "13px",
+                fontWeight: 600,
+              }}
+            >
+              <CheckCircle2 size={18} />
+              Added successfully — ready for the next scan
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* EXISTING NOTIFICATION FOR MANUAL PRODUCT SELECTION */}
+      {scanToast && !scanToast.isScan && (
         <div className="barcode-scan-banner" role="alert">
           <CheckCircle2 size={18} style={{ color: "#22c55e" }} />
           <div>
@@ -539,7 +772,7 @@ export default function BillingView() {
               ref={barcodeInputRef}
               type="text"
               value={barcodeInput}
-              onChange={(e) => setBarcodeInput(e.target.value)}
+              onChange={handleBarcodeInputChange}
               onKeyDown={handleBarcodeKeyDown}
               placeholder="Scan Barcode (Auto-Add)..."
               className="barcode-input-field"

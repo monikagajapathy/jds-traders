@@ -1,113 +1,142 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { X, Search, Plus, Minus, Package } from "lucide-react";
 import { formatINR } from "../utils/calculations.js";
 
 export default function ProductDetailsModal({ product, onClose, onAddToBill }) {
-  const [selectedColor, setSelectedColor] = useState("");
-  const [selectedSize, setSelectedSize] = useState(null);
+  const variants = useMemo(
+    () => (Array.isArray(product?.variants) ? product.variants : []),
+    [product?.variants]
+  );
+
+  const [selectedSize, setSelectedSize] = useState("");
+  const [selectedVariantId, setSelectedVariantId] = useState(null);
   const [quantity, setQuantity] = useState(1);
   const [sizeSearch, setSizeSearch] = useState("");
 
-  // Extract unique colors from variants
-  const availableColors = useMemo(() => {
-    const colors = new Set();
-    product.variants?.forEach(v => {
-      if (v.color) colors.add(v.color);
+  // First choose a size. Only colours stocked for that size are then offered.
+  const availableSizes = useMemo(() => {
+    const sizes = [...new Set(variants.map((variant) => String(variant.size ?? "").trim()).filter(Boolean))];
+    return sizes.sort((a, b) => {
+      const na = Number(a);
+      const nb = Number(b);
+      if (Number.isFinite(na) && Number.isFinite(nb)) return na - nb;
+      return a.localeCompare(b, undefined, { numeric: true });
     });
-    return Array.from(colors);
-  }, [product.variants]);
+  }, [variants]);
 
-  // Initialize selected color
+  const filteredSizes = useMemo(() => {
+    const search = sizeSearch.trim().toLowerCase();
+    return search
+      ? availableSizes.filter((size) => size.toLowerCase().includes(search))
+      : availableSizes;
+  }, [availableSizes, sizeSearch]);
+
+  const variantsForSize = useMemo(
+    () => variants.filter((variant) => String(variant.size ?? "").trim() === selectedSize),
+    [variants, selectedSize]
+  );
+
+  const availableColorsForSize = useMemo(() => {
+    const seen = new Set();
+    return variantsForSize
+      .map((variant) => String(variant.color || "Standard").trim())
+      .filter((color) => {
+        const key = color.toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+  }, [variantsForSize]);
+
+  const selectedVariant = useMemo(
+    () => variantsForSize.find((variant) => variant.id === selectedVariantId) || null,
+    [variantsForSize, selectedVariantId]
+  );
+
+  const availableStock = Math.max(0, Number(selectedVariant?.stock) || 0);
+  const maxQuantity = availableStock;
+  const totalPrice = selectedVariant
+    ? (Number(selectedVariant.selling_price) || 0) * quantity
+    : 0;
+
   useEffect(() => {
-    if (availableColors.length > 0 && !selectedColor) {
-      setSelectedColor(availableColors[0]);
-    }
-  }, [availableColors, selectedColor]);
+    // If the product changes while the modal remains mounted, clear stale selections.
+    setSelectedSize("");
+    setSelectedVariantId(null);
+    setQuantity(1);
+    setSizeSearch("");
+  }, [product?.id]);
 
-  // Filter variants by selected color and search
-  const availableVariants = useMemo(() => {
-    let filtered = product.variants?.filter(v => v.color === selectedColor) || [];
-
-    // Apply size search filter
-    if (sizeSearch.trim()) {
-      const searchLower = sizeSearch.toLowerCase().trim();
-      filtered = filtered.filter((v) =>
-        v.size.toString().toLowerCase().includes(searchLower)
-      );
-    }
-
-    return filtered;
-  }, [product.variants, selectedColor, sizeSearch]);
-
-  // Get selected variant details
-  const selectedVariant = selectedSize
-    ? product.variants?.find((v) => v.id === selectedSize)
-    : null;
-
-  const availableStock = selectedVariant?.stock || 0;
-  const maxQuantity = Math.max(1, availableStock);
-
-  // Handle quantity change
-  const handleQuantityChange = (delta) => {
-    const newQty = quantity + delta;
-    if (newQty >= 1 && newQty <= maxQuantity) {
-      setQuantity(newQty);
-    }
-  };
-
-  // Handle color change
-  const handleColorChange = (color) => {
-    setSelectedColor(color);
-    setSelectedSize(null);
+  const handleSizeChange = (size) => {
+    setSelectedSize(size);
+    setSelectedVariantId(null);
     setQuantity(1);
   };
 
-  // Handle add to bill
-  const handleAddToBill = () => {
-    if (!selectedVariant || availableStock <= 0) return;
+  const handleColorChange = (color) => {
+    const matchingVariant = variantsForSize.find(
+      (variant) => String(variant.color || "Standard").trim() === color
+    );
+    setSelectedVariantId(matchingVariant?.id ?? null);
+    setQuantity(1);
+  };
 
-    onAddToBill(selectedVariant, product, quantity);
+  const handleQuantityInput = (rawValue) => {
+    if (rawValue === "") {
+      setQuantity("");
+      return;
+    }
+    const value = Number(rawValue);
+    if (Number.isInteger(value) && value >= 1 && value <= maxQuantity) {
+      setQuantity(value);
+    }
+  };
+
+  const handleAddToBill = () => {
+    const finalQuantity = Number(quantity);
+    if (!selectedVariant || availableStock <= 0) return;
+    if (!Number.isInteger(finalQuantity) || finalQuantity < 1 || finalQuantity > availableStock) {
+      alert(`Enter a quantity between 1 and ${availableStock}.`);
+      return;
+    }
+
+    onAddToBill(selectedVariant, product, finalQuantity);
     onClose();
   };
 
-  // Calculate total price
-  const totalPrice = selectedVariant
-    ? (selectedVariant.selling_price || 0) * quantity
-    : 0;
-
-  // Determine stock status for a variant
   const getStockStatus = (variant) => {
-    const stock = variant.stock || 0;
+    const stock = Math.max(0, Number(variant.stock) || 0);
     if (stock === 0) return "out";
-    if (stock <= (variant.reorder_level || 3)) return "low";
+    if (stock <= (Number(variant.reorder_level) || 3)) return "low";
     return "ok";
   };
+
+  const productTaxRate = Number(product?.tax_rate ?? 5);
+  const productTotalStock = variants.reduce(
+    (sum, variant) => sum + (Number(variant.stock) || 0),
+    0
+  );
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div
         className="product-modal-content"
-        onClick={(e) => e.stopPropagation()}
+        onClick={(event) => event.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="product-details-modal-title"
       >
-        {/* Modal Header */}
         <div className="product-modal-header">
           <div>
-            <h3>Product Details & Size Selection</h3>
-            <p>Select color, size and quantity to add to bill</p>
+            <h3 id="product-details-modal-title">Product Details & Size Selection</h3>
+            <p>Select size first, then choose its colour and quantity</p>
           </div>
-          <button
-            type="button"
-            className="btn-close"
-            onClick={onClose}
-            aria-label="Close"
-          >
+          <button type="button" className="btn-close" onClick={onClose} aria-label="Close">
             <X size={20} />
           </button>
         </div>
 
-        {/* Modal Body */}
         <div className="product-modal-body">
-          {/* Product Info Section */}
           <div className="product-info-section">
             <div className="product-info-image">
               <Package size={48} strokeWidth={1.5} />
@@ -123,41 +152,15 @@ export default function ProductDetailsModal({ product, onClose, onAddToBill }) {
                   {product.category} • {product.sub_category}
                 </span>
                 <span className="product-price-tag">
-                  {formatINR(product.variants?.[0]?.selling_price || 0)}
+                  {formatINR(variants[0]?.selling_price || product.selling_price || 0)}
                 </span>
-                <span className="product-tax-tag">
-                  {product.tax_rate}% GST
-                </span>
+                <span className="product-tax-tag">{productTaxRate}% GST</span>
               </div>
-              <div className="product-total-stock">
-                Total Stock: {product.variants?.reduce((sum, v) => sum + (v.stock || 0), 0) || 0} pairs
-              </div>
+              <div className="product-total-stock">Total Stock: {productTotalStock} pairs</div>
             </div>
           </div>
 
-          {/* Color Selection */}
-          {availableColors.length > 1 && (
-            <div className="category-selection-section">
-              <label className="section-label">Select Color:</label>
-              <div className="category-buttons">
-                {availableColors.map((color) => (
-                  <button
-                    key={color}
-                    type="button"
-                    className={`category-select-btn ${
-                      selectedColor === color ? "active" : ""
-                    }`}
-                    onClick={() => handleColorChange(color)}
-                  >
-                    {color}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Size Search (when many sizes) */}
-          {availableVariants.length > 12 && (
+          {availableSizes.length > 12 && (
             <div className="size-search-section">
               <div className="size-search-box">
                 <Search size={14} />
@@ -165,13 +168,10 @@ export default function ProductDetailsModal({ product, onClose, onAddToBill }) {
                   type="text"
                   placeholder="Search size..."
                   value={sizeSearch}
-                  onChange={(e) => setSizeSearch(e.target.value)}
+                  onChange={(event) => setSizeSearch(event.target.value)}
                 />
                 {sizeSearch && (
-                  <button
-                    className="search-clear-btn"
-                    onClick={() => setSizeSearch("")}
-                  >
+                  <button type="button" className="search-clear-btn" onClick={() => setSizeSearch("")}>
                     ✕
                   </button>
                 )}
@@ -179,48 +179,33 @@ export default function ProductDetailsModal({ product, onClose, onAddToBill }) {
             </div>
           )}
 
-          {/* Size Selection Grid */}
           <div className="size-selection-section">
-            <label className="section-label">
-              Select Size ({availableVariants.length} available):
-            </label>
+            <label className="section-label">1. Select Size ({filteredSizes.length} sizes):</label>
             <div className="size-grid">
-              {availableVariants.length === 0 ? (
-                <div className="no-sizes-message">
-                  No sizes available for {selectedColor}
-                </div>
+              {filteredSizes.length === 0 ? (
+                <div className="no-sizes-message">No sizes match your search.</div>
               ) : (
-                availableVariants.map((variant) => {
-                  const stockStatus = getStockStatus(variant);
-                  const isSelected = selectedSize === variant.id;
-                  const isOutOfStock = stockStatus === "out";
-
+                filteredSizes.map((size) => {
+                  const sizeVariants = variants.filter(
+                    (variant) => String(variant.size ?? "").trim() === size
+                  );
+                  const sizeStock = sizeVariants.reduce(
+                    (sum, variant) => sum + Math.max(0, Number(variant.stock) || 0),
+                    0
+                  );
+                  const isSelected = selectedSize === size;
                   return (
                     <button
-                      key={variant.id}
+                      key={size}
                       type="button"
-                      disabled={isOutOfStock}
-                      className={`size-grid-btn ${
-                        isSelected ? "selected" : ""
-                      } ${stockStatus === "low" ? "low-stock" : ""} ${
-                        isOutOfStock ? "out-of-stock" : ""
-                      }`}
-                      onClick={() => {
-                        setSelectedSize(variant.id);
-                        setQuantity(1);
-                      }}
-                      title={`Size ${variant.size} (${variant.color}) - Stock: ${variant.stock} pairs`}
+                      disabled={sizeStock <= 0}
+                      className={`size-grid-btn ${isSelected ? "selected" : ""} ${sizeStock <= 0 ? "out-of-stock" : ""}`}
+                      onClick={() => handleSizeChange(size)}
+                      title={`Size ${size} — ${sizeStock} pairs across colours`}
                     >
-                      <span className="size-grid-number">{variant.size}</span>
-                      <span className="size-grid-color">{variant.color}</span>
+                      <span className="size-grid-number">{size}</span>
                       <span className="size-grid-stock">
-                        {stockStatus === "out" ? (
-                          "Out"
-                        ) : stockStatus === "low" ? (
-                          <span className="low-badge">{variant.stock} left</span>
-                        ) : (
-                          `${variant.stock} pcs`
-                        )}
+                        {sizeStock <= 0 ? "Out" : `${sizeStock} pcs`}
                       </span>
                     </button>
                   );
@@ -229,49 +214,81 @@ export default function ProductDetailsModal({ product, onClose, onAddToBill }) {
             </div>
           </div>
 
-          {/* Selection Summary */}
+          {selectedSize && (
+            <div className="category-selection-section">
+              <label className="section-label">2. Select Colour for Size {selectedSize}:</label>
+              <div className="category-buttons">
+                {availableColorsForSize.map((color) => {
+                  const variant = variantsForSize.find(
+                    (item) => String(item.color || "Standard").trim() === color
+                  );
+                  const stock = Math.max(0, Number(variant?.stock) || 0);
+                  const status = variant ? getStockStatus(variant) : "out";
+                  const isSelected = selectedVariantId === variant?.id;
+                  return (
+                    <button
+                      key={`${selectedSize}-${color}`}
+                      type="button"
+                      disabled={!variant || stock <= 0}
+                      className={`category-select-btn ${isSelected ? "active" : ""} ${stock <= 0 ? "out-of-stock" : ""}`}
+                      onClick={() => handleColorChange(color)}
+                      title={`${color} — ${stock} pairs available`}
+                    >
+                      {color}
+                      <span style={{ display: "block", fontSize: "10px", opacity: 0.8 }}>
+                        {stock <= 0 ? "Out of stock" : status === "low" ? `${stock} left` : `${stock} pairs`}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              {availableColorsForSize.length === 0 && (
+                <div className="no-sizes-message">No colour variants found for this size.</div>
+              )}
+            </div>
+          )}
+
           {selectedVariant ? (
             <div className="selection-summary">
               <div className="summary-row">
                 <span className="summary-label">Selected:</span>
                 <span className="summary-value">
-                  Size {selectedVariant.size} ({selectedVariant.color})
+                  Size {selectedVariant.size} ({selectedVariant.color || "Standard"})
                 </span>
               </div>
               <div className="summary-row">
                 <span className="summary-label">Available Stock:</span>
-                <span className="summary-value stock-highlight">
-                  {availableStock} pairs
-                </span>
+                <span className="summary-value stock-highlight">{availableStock} pairs</span>
               </div>
               <div className="summary-row">
                 <span className="summary-label">Price per pair:</span>
-                <span className="summary-value">
-                  {formatINR(selectedVariant.selling_price)}
-                </span>
+                <span className="summary-value">{formatINR(selectedVariant.selling_price)}</span>
               </div>
               <div className="summary-row">
                 <span className="summary-label">GST:</span>
-                <span className="summary-value">{product.tax_rate}%</span>
+                <span className="summary-value">{productTaxRate}%</span>
               </div>
             </div>
           ) : (
             <div className="no-selection-message">
               <Package size={20} />
-              <span>Please select a size to continue</span>
+              <span>
+                {!selectedSize
+                  ? "Please select a size to continue"
+                  : "Please select a colour to continue"}
+              </span>
             </div>
           )}
 
-          {/* Quantity Selector */}
           {selectedVariant && availableStock > 0 && (
             <div className="quantity-section">
-              <label className="section-label">Quantity:</label>
+              <label className="section-label">3. Quantity:</label>
               <div className="quantity-control">
                 <button
                   type="button"
                   className="qty-btn"
-                  onClick={() => handleQuantityChange(-1)}
-                  disabled={quantity <= 1}
+                  onClick={() => setQuantity((current) => Math.max(1, (Number(current) || 1) - 1))}
+                  disabled={Number(quantity) <= 1}
                   aria-label="Decrease quantity"
                 >
                   <Minus size={14} />
@@ -280,11 +297,10 @@ export default function ProductDetailsModal({ product, onClose, onAddToBill }) {
                   type="number"
                   className="qty-input"
                   value={quantity}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value, 10);
-                    if (!isNaN(val) && val >= 1 && val <= maxQuantity) {
-                      setQuantity(val);
-                    }
+                  onChange={(event) => handleQuantityInput(event.target.value)}
+                  onBlur={() => {
+                    if (!Number.isInteger(Number(quantity)) || Number(quantity) < 1) setQuantity(1);
+                    else if (Number(quantity) > maxQuantity) setQuantity(maxQuantity);
                   }}
                   min="1"
                   max={maxQuantity}
@@ -292,8 +308,8 @@ export default function ProductDetailsModal({ product, onClose, onAddToBill }) {
                 <button
                   type="button"
                   className="qty-btn"
-                  onClick={() => handleQuantityChange(1)}
-                  disabled={quantity >= maxQuantity}
+                  onClick={() => setQuantity((current) => Math.min(maxQuantity, (Number(current) || 0) + 1))}
+                  disabled={Number(quantity) >= maxQuantity}
                   aria-label="Increase quantity"
                 >
                   <Plus size={14} />
@@ -304,26 +320,19 @@ export default function ProductDetailsModal({ product, onClose, onAddToBill }) {
           )}
         </div>
 
-        {/* Modal Footer */}
         <div className="product-modal-footer">
-          <button
-            type="button"
-            className="btn-modal-cancel"
-            onClick={onClose}
-          >
+          <button type="button" className="btn-modal-cancel" onClick={onClose}>
             Cancel
           </button>
           <button
             type="button"
             className="btn-modal-add"
             onClick={handleAddToBill}
-            disabled={!selectedVariant || availableStock <= 0}
+            disabled={!selectedVariant || availableStock <= 0 || !Number.isInteger(Number(quantity)) || Number(quantity) < 1 || Number(quantity) > availableStock}
           >
             Add to Bill
             {selectedVariant && (
-              <span className="btn-price-tag">
-                {formatINR(totalPrice)}
-              </span>
+              <span className="btn-price-tag">{formatINR(totalPrice)}</span>
             )}
           </button>
         </div>
